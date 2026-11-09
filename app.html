@@ -130,6 +130,27 @@
     padding:10px 16px;border-radius:99px;font-size:13px;z-index:30;opacity:0;transition:opacity .2s;pointer-events:none}
   .toast.show{opacity:1}
   .loading{text-align:center;padding:60px 0;color:var(--sub)}
+  /* 封筒（長形3号 120×235mm・縦書き） */
+  .env{position:relative;width:120mm;height:235mm;background:#fff;color:#000;overflow:hidden;
+    font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;box-sizing:border-box}
+  .e-zip{position:absolute;top:12mm;right:10mm;font-size:16pt;letter-spacing:.08em;font-family:"Hiragino Sans","Noto Sans JP",sans-serif}
+  .e-addr{position:absolute;top:30mm;right:14mm;height:185mm;writing-mode:vertical-rl;text-orientation:upright;
+    font-size:15pt;line-height:1.7;letter-spacing:.06em}
+  .e-addr2{padding-top:18mm}
+  .e-name{position:absolute;top:45mm;right:50%;transform:translateX(50%);height:170mm;writing-mode:vertical-rl;
+    text-orientation:upright;font-size:30pt;letter-spacing:.3em;line-height:1.5}
+  .e-co{font-size:14pt;letter-spacing:.08em;padding-top:4mm}
+  .e-sama{padding-top:6mm;display:inline-block}
+  .envprev{margin:14px auto 0;width:calc(120mm * .42);height:calc(235mm * .42);border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#fff}
+  .envscale{transform:scale(.42);transform-origin:top left}
+  #printArea{display:none}
+  @media print{
+    @page{size:120mm 235mm;margin:0}
+    body.printing > *:not(#printArea){display:none !important}
+    body.printing #printArea{display:block}
+    body.printing{background:#fff}
+    #printArea .env{page-break-after:always;break-after:page}
+  }
 </style>
 </head>
 <body>
@@ -262,7 +283,8 @@ const FILTERS = [
   ['未入金', '未入金（決定）', t => t.attend === '決定' && t.paid === '未入金'],
   ['入金済', '入金済', t => t.paid === '入金済'],
 ];
-const blankTicket = cid => ({ eventId:S.eventId, customerId:cid, guide:'未案内', attend:'確認中', paid:'未入金', items:[], memo:'' });
+const DELIVERY = ['郵送','手渡し','当日受付'];
+const blankTicket = cid => ({ eventId:S.eventId, customerId:cid, guide:'未案内', attend:'確認中', paid:'未入金', delivery:'', items:[], memo:'' });
 
 /* シートの行 → 画面用（古い形式「状況」1項目・席種1種類のデータもここで読み替える） */
 function normTicket(t){
@@ -278,7 +300,7 @@ function normTicket(t){
     attend = st === '決定' || st === '入金済' ? '決定' : st === '見送り' ? '見送り' : '確認中';
     paid = st === '入金済' ? '入金済' : '未入金';
   }
-  return { ...t, guide, attend: attend || '確認中', paid: paid || '未入金', items };
+  return { ...t, guide, attend: attend || '確認中', paid: paid || '未入金', delivery: t.delivery || '', items };
 }
 /* 画面用 → シートの行（スプレッドシートでも読みやすいように、合計や座席番号もまとめて書く） */
 function serTicket(t){
@@ -319,6 +341,7 @@ function viewTickets(){
       <div class="stat"><div class="k">売上見込み</div><div class="v">${yen(amt)}</div></div>
       <div class="stat"><div class="k">未入金</div><div class="v" style="color:${amt-paid?'var(--accent)':'inherit'}">${yen(amt-paid)}</div></div>
     </div>
+    <button class="btn ghost" style="margin-top:12px" onclick="openPrint()">✉️ 封筒の宛名を印刷</button>
     ${Object.keys(gsum).length ? `<div class="groups">${Object.entries(gsum).sort((a,b)=>b[1]-a[1]).map(([k,v]) => `<span>${esc(k)} <b>${v}</b></span>`).join('')}</div>` : ''}
   </div>
   <input class="search" placeholder="名前・関係性・座席番号で検索" value="${esc(S.tq)}" oninput="S.tq=this.value;renderTicketList()">
@@ -341,6 +364,7 @@ function renderTicketList(){
           <div class="nm">${esc(c.name)}<span class="hon">${esc(c.honorific)}</span>${no ? `<span class="seatno">${esc(no)}</span>` : ''}</div>
           <div class="meta">${c.group?`<span class="tag">${esc(c.group)}</span>`:''}
             ${t.items.length ? `<span>${t.items.map(i => `${esc(i.seat)}×${i.qty}`).join('・')}</span>` : ''}
+            ${t.delivery ? `<span>${t.delivery === '郵送' ? '✉️' : t.delivery === '手渡し' ? '🤝' : '🎫'}${esc(t.delivery)}</span>` : ''}
             ${t.memo ? `<span>📝</span>` : ''}</div>
           <div class="pills">
             <button class="pill ${PILL[t.guide]}" onclick="event.stopPropagation();toggleSt('${esc(c.id)}','guide')">${t.guide}</button>
@@ -406,6 +430,8 @@ function renderTicketSheet(){
     <div class="sec"><label>① 案内</label>${seg('guide', GUIDE)}</div>
     <div class="sec"><label>② 参加</label>${seg('attend', ATTEND)}</div>
     <div class="sec"><label>③ 入金</label>${seg('paid', PAID)}</div>
+    <div class="sec"><label>受け取り方法</label><div class="seg">${DELIVERY.map(v =>
+      `<button class="opt ${TK.delivery===v?'on':''}" onclick="TK.delivery=TK.delivery==='${v}'?'':'${v}';syncSheet()">${v}</button>`).join('')}</div></div>
     <div class="sec"><label>チケット（複数の席種を選べます）</label>
       ${ticketSeatRows().map((s, k) => {
         const it = TK.items.find(i => i.seat === s.name) || { qty: 0, no: '', price: s.price };
@@ -487,8 +513,8 @@ function openCustomer(id){
     <datalist id="glist">${groups().map(g => `<option value="${esc(g)}">`).join('')}</datalist>
     <div class="two">${f('phone','電話番号','type="tel" inputmode="tel"')}${f('email','メール','type="email"')}</div>
     ${f('zip','郵便番号','inputmode="numeric" placeholder="4600000"')}
-    ${f('addr1','住所1（都道府県・市区町村）')}
-    ${f('addr2','住所2（番地・建物名）')}
+    ${f('addr1','住所（都道府県〜番地）','placeholder="例：愛知県名古屋市中区栄1-2-3"')}
+    ${f('addr2','建物名・部屋番号（任意）','placeholder="例：サンプルマンション101号室"')}
     ${f('company','会社名')}
     <div class="f"><label class="fl">メモ</label><textarea class="inp" id="c_memo">${esc(c.memo)}</textarea></div>
     ${hist.length ? `<div class="sec"><label>チケット履歴</label><div class="hist">${hist.map(({t,e}) =>
@@ -617,6 +643,68 @@ function removeEvent(id){
   if (S.eventId === id) S.eventId = defaultEvent(); render();
   batch([{ op:'remove', key:'events', id }, { op:'removeWhere', key:'tickets', field:'eventId', value:id },
          { op:'removeWhere', key:'seats', field:'eventId', value:id }]).then(() => toast('削除しました')).catch(fail);
+}
+
+/* ---- 封筒の宛名印刷（長形3号・縦書き） ---- */
+const KANJI = '〇一二三四五六七八九';
+// 縦書き用：数字は漢数字に、ハイフン類は「ー」に
+function tate(str){
+  return String(str || '')
+    .replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0))
+    .replace(/[0-9]/g, d => KANJI[d])
+    .replace(/[-‐－−―ｰ]/g, 'ー');
+}
+const fmtZip = z => { const d = String(z || '').replace(/[^\d]/g, ''); return d.length === 7 ? d.slice(0,3) + '-' + d.slice(3) : d; };
+let PR = { sel: new Set() };
+function printTargets(){
+  return ticketRows().filter(r => r.t.attend === '決定');
+}
+function openPrint(){
+  const rows = printTargets();
+  // 最初は「決定」で、受け取りが郵送（未設定も含む）かつ住所がある人にチェック
+  PR.sel = new Set(rows.filter(r => (r.t.delivery === '郵送' || !r.t.delivery) && r.c.addr1).map(r => r.c.id));
+  renderPrintSheet();
+}
+function renderPrintSheet(){
+  const rows = printTargets();
+  const first = rows.find(r => PR.sel.has(r.c.id));
+  openSheet(`
+    <h2>封筒の宛名を印刷</h2>
+    <div class="muted">長形3号（12×23.5cm）の封筒に縦書きで印刷します。参加が「決定」の人が対象です。</div>
+    ${first ? `<div class="envprev"><div class="envscale">${envelopeHTML(first.c)}</div></div>` : ''}
+    <div class="sec"><label>印刷する人（${PR.sel.size}人）</label>
+      <div class="list" style="margin-top:0">${rows.length ? rows.map(({c,t}) => `
+        <label class="row" style="gap:12px">
+          <input type="checkbox" ${PR.sel.has(c.id)?'checked':''} onchange="this.checked?PR.sel.add('${esc(c.id)}'):PR.sel.delete('${esc(c.id)}');syncPrint()" style="width:20px;height:20px">
+          <div class="row-main"><div class="nm" style="font-size:14px">${esc(c.name)}</div>
+            <div class="meta">${t.delivery ? `<span>${esc(t.delivery)}</span>` : ''}${c.addr1 ? `<span>${esc(c.addr1)}</span>` : '<span style="color:var(--accent)">住所なし</span>'}</div></div>
+        </label>`).join('') : '<div class="empty">参加が「決定」の人がいません</div>'}</div>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="doPrint()" ${PR.sel.size ? '' : 'disabled'}>印刷する（${PR.sel.size}枚）</button>
+    </div>
+    <div class="muted" style="margin-top:10px;line-height:1.7">
+      ・印刷画面で用紙サイズを「長形3号」（または120×235mm）、余白を「なし」にしてください。<br>
+      ・PDFに保存しておくこともできます。</div>`);
+}
+function syncPrint(){ const y = $('#sheet').scrollTop; renderPrintSheet(); $('#sheet').scrollTop = y; }
+function envelopeHTML(c){
+  const company = c.company ? `<div class="e-co">${esc(tate(c.company))}</div>` : '';
+  return `<div class="env">
+    <div class="e-zip">〒${esc(fmtZip(c.zip))}</div>
+    <div class="e-addr"><div>${esc(tate(c.addr1))}</div>${c.addr2 ? `<div class="e-addr2">${esc(tate(c.addr2))}</div>` : ''}</div>
+    <div class="e-name">${company}<div>${esc(c.name)}<span class="e-sama">様</span></div></div>
+  </div>`;
+}
+function doPrint(){
+  const list = printTargets().filter(r => PR.sel.has(r.c.id));
+  if (!list.length) return;
+  let box = $('#printArea');
+  if (!box) { box = document.createElement('div'); box.id = 'printArea'; document.body.appendChild(box); }
+  box.innerHTML = list.map(r => envelopeHTML(r.c)).join('');
+  closeSheet();
+  document.body.classList.add('printing');
+  setTimeout(() => { window.print(); setTimeout(() => document.body.classList.remove('printing'), 500); }, 100);
 }
 
 /* ========= シート（下から出るパネル） ========= */
