@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="サポーター管理">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="robots" content="noindex, nofollow">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="apple-touch-icon.png">
+<title>サポーター管理</title>
+<style>
+  html,body{margin:0;height:100%;background:#1c1c1e;color:#fff;
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif}
+  .wrap{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:18px;padding:24px;box-sizing:border-box;text-align:center}
+  img{width:120px;height:120px;border-radius:27px}
+  h1{font-size:20px;margin:0}
+  p{color:#c7c7cc;font-size:14px;line-height:1.7;margin:0}
+  .guide{display:none}
+  a{color:#ff6b7d}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <img src="apple-touch-icon.png" alt="">
+  <h1>サポーター管理</h1>
+  <p id="msg">開いています…</p>
+  <p class="guide" id="guide">
+    共有ボタン →「ホーム画面に追加」で<br>
+    「Webアプリとして開く」をオンにして追加してください。<br><br>
+    <a id="direct" href="#">今すぐアプリを開く</a>
+  </p>
+</div>
+<script>
+  // ▼ ここに Apps Script のウェブアプリURL（/exec で終わるもの）を貼り付け
+  const APP_URL = 'ここにURLを貼り付け';
+
+  const standalone = window.navigator.standalone === true ||
+                     window.matchMedia('(display-mode: standalone)').matches;
+  document.getElementById('direct').href = APP_URL;
+
+  if (standalone) {
+    // ホーム画面のアイコンから起動したときだけ、そのままアプリへ
+    location.replace(APP_URL);
+  } else {
+    // Safariで開いたときは、ホーム画面に追加する案内を表示
+    document.getElementById('msg').style.display = 'none';
+    document.getElementById('guide').style.display = 'block';
+  }
+</script>
+</body>
+</html>
