@@ -59,6 +59,18 @@
   .s0{color:var(--st0);background:var(--st0b)} .s1{color:var(--st1);background:var(--st1b)}
   .s2{color:var(--st2);background:var(--st2b)} .s3{color:var(--st3);background:var(--st3b)}
   .s4{color:var(--st4);background:var(--st4b)} .s5{color:var(--st5);background:var(--st5b);text-decoration:line-through}
+  .s6{color:var(--accent);background:var(--accent-soft)}
+  .trow{align-items:flex-start}
+  .seatno{margin-left:8px;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:1px 7px;border-radius:6px;vertical-align:2px}
+  .pills{display:flex;gap:6px;margin-top:8px}
+  .pills .pill{min-width:0;padding:6px 11px}
+  .seg{display:flex;gap:6px}.seg .opt{flex:1}
+  .tkrow{border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+  .tkrow.on{border-color:var(--ink)}
+  .tkhead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .tkrow .tkno{margin-top:8px}
+  .stepper.sm button{width:38px;height:38px;font-size:20px}
+  .stepper.sm .n{font-size:18px;min-width:24px}
   .empty{text-align:center;padding:48px 16px;color:var(--sub)}
   .btn{border:0;border-radius:12px;padding:12px 16px;font-weight:600;background:var(--ink);color:#fff;width:100%}
   .btn.ghost{background:var(--bg);color:var(--ink)}
@@ -187,15 +199,12 @@ const Demo = (() => {
 /* ========= 状態 ========= */
 const S = { customers:[], events:[], tickets:[], seats:[], statuses:[],
   tab:'tickets', eventId:null, tq:'', tfilter:'all', cq:'', cgroup:'all' };
-const CYCLE = ['未案内','案内済','確認中','決定','入金済'];
 
 /* ========= ユーティリティ ========= */
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num = v => Number(v) || 0;
 const yen = n => '¥' + num(n).toLocaleString('ja-JP');
-const sIdx = s => Math.max(0, S.statuses.indexOf(s));
-const isSold = s => s === '決定' || s === '入金済';
 const byKana = (a, b) => (a.kana || a.name).localeCompare(b.kana || b.name, 'ja');
 const groups = () => [...new Set(S.customers.map(c => c.group).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));
 // 試合の席種：その試合専用 → なければ共通（試合IDなし）→ なければ初期値
@@ -215,7 +224,7 @@ function fail(e){ toast('保存に失敗しました：' + (e && e.message || e)
 async function load(){
   try {
     const d = await getAll(['customers', 'events', 'tickets', 'seats']);
-    Object.assign(S, { customers: d.customers, events: d.events, tickets: d.tickets, statuses: STATUSES,
+    Object.assign(S, { customers: d.customers, events: d.events, tickets: d.tickets.map(normTicket), statuses: STATUSES,
       seats: d.seats.map(x => ({ ...x, price: num(x.price), order: num(x.order) })) });
     if (!S.events.find(e => e.id === S.eventId)) S.eventId = defaultEvent();
     render();
@@ -241,20 +250,65 @@ function render(){
 }
 
 /* ---- チケット ---- */
+// 状況は3つの項目に分けて管理：①案内 ②参加 ③入金
+const GUIDE = ['未案内','案内済'], ATTEND = ['確認中','決定','見送り'], PAID = ['未入金','入金済'];
+const PILL = { '未案内':'s0', '案内済':'s1', '確認中':'s2', '決定':'s3', '見送り':'s5', '未入金':'s6', '入金済':'s4' };
+const FILTERS = [
+  ['all', 'すべて', () => true],
+  ['未案内', '未案内', t => t.guide === '未案内'],
+  ['確認中', '確認中', t => t.attend === '確認中'],
+  ['決定', '決定', t => t.attend === '決定'],
+  ['見送り', '見送り', t => t.attend === '見送り'],
+  ['未入金', '未入金（決定）', t => t.attend === '決定' && t.paid === '未入金'],
+  ['入金済', '入金済', t => t.paid === '入金済'],
+];
+const blankTicket = cid => ({ eventId:S.eventId, customerId:cid, guide:'未案内', attend:'確認中', paid:'未入金', items:[], memo:'' });
+
+/* シートの行 → 画面用（古い形式「状況」1項目・席種1種類のデータもここで読み替える） */
+function normTicket(t){
+  let items = [];
+  try { if (t.items) items = JSON.parse(t.items); } catch (e) {}
+  if (!Array.isArray(items) || (!items.length && !t.items && t.seat && num(t.qty)))
+    items = t.seat && num(t.qty) ? [{ seat: t.seat, qty: num(t.qty), price: num(t.price), no: t.seatNo || '' }] : [];
+  items = items.map(i => ({ seat: i.seat || '', qty: num(i.qty), price: num(i.price), no: i.no || '' })).filter(i => i.qty > 0);
+  let { guide, attend, paid } = t;
+  if (!guide) {
+    const st = t.status || '未案内';
+    guide = st === '未案内' ? '未案内' : '案内済';
+    attend = st === '決定' || st === '入金済' ? '決定' : st === '見送り' ? '見送り' : '確認中';
+    paid = st === '入金済' ? '入金済' : '未入金';
+  }
+  return { ...t, guide, attend: attend || '確認中', paid: paid || '未入金', items };
+}
+/* 画面用 → シートの行（スプレッドシートでも読みやすいように、合計や座席番号もまとめて書く） */
+function serTicket(t){
+  const o = { ...t };
+  o.items = JSON.stringify(t.items);
+  o.seat = t.items.map(i => `${i.seat}×${i.qty}`).join('、');
+  o.qty = String(tQty(t));
+  o.amount = String(tAmt(t));
+  o.seatNo = t.items.map(i => i.no).filter(Boolean).join('、');
+  o.status = `${t.guide}/${t.attend}/${t.paid}`;
+  delete o.price; delete o.updatedAt;
+  return o;
+}
+const tQty = t => t ? t.items.reduce((s, i) => s + i.qty, 0) : 0;
+const tAmt = t => t ? t.items.reduce((s, i) => s + i.qty * i.price, 0) : 0;
+const seatNos = t => t ? t.items.map(i => i.no).filter(Boolean).join('、') : '';
+
 function ticketRows(){
   const tm = new Map(S.tickets.filter(t => t.eventId === S.eventId).map(t => [t.customerId, t]));
-  return S.customers.slice().sort(byKana).map(c => { const t = tm.get(c.id); return { c, t, st: t && t.status || '未案内' }; });
+  return S.customers.slice().sort(byKana).map(c => ({ c, t: tm.get(c.id) || blankTicket(c.id), saved: tm.has(c.id) }));
 }
 function viewTickets(){
   if (!S.events.length) return `<div class="empty">まだ試合が登録されていません<br><br>
     <button class="btn" style="width:auto" onclick="S.tab='events';render();openEvent()">試合を追加する</button></div>`;
   const rows = ticketRows();
-  const sold = rows.filter(r => isSold(r.st));
-  const qty = sold.reduce((s,r) => s + num(r.t.qty), 0);
-  const amt = sold.reduce((s,r) => s + num(r.t.qty) * num(r.t.price), 0);
-  const paid = rows.filter(r => r.st === '入金済').reduce((s,r) => s + num(r.t.qty) * num(r.t.price), 0);
-  const cnt = {}; S.statuses.forEach(s => cnt[s] = 0); rows.forEach(r => cnt[r.st]++);
-  const gsum = {}; sold.forEach(r => { const k = r.c.group || '未分類'; gsum[k] = (gsum[k]||0) + num(r.t.qty); });
+  const sold = rows.filter(r => r.t.attend === '決定');
+  const qty = sold.reduce((s,r) => s + tQty(r.t), 0);
+  const amt = sold.reduce((s,r) => s + tAmt(r.t), 0);
+  const paid = sold.filter(r => r.t.paid === '入金済').reduce((s,r) => s + tAmt(r.t), 0);
+  const gsum = {}; sold.forEach(r => { const k = r.c.group || '未分類'; gsum[k] = (gsum[k]||0) + tQty(r.t); });
   const opts = [...S.events].sort((a,b) => b.date.localeCompare(a.date))
     .map(e => `<option value="${esc(e.id)}" ${e.id===S.eventId?'selected':''}>${esc(e.title)}（${fmtDate(e.date)}）</option>`).join('');
   return `
@@ -267,40 +321,45 @@ function viewTickets(){
     </div>
     ${Object.keys(gsum).length ? `<div class="groups">${Object.entries(gsum).sort((a,b)=>b[1]-a[1]).map(([k,v]) => `<span>${esc(k)} <b>${v}</b></span>`).join('')}</div>` : ''}
   </div>
-  <input class="search" placeholder="名前・関係性で検索" value="${esc(S.tq)}" oninput="S.tq=this.value;renderTicketList()">
+  <input class="search" placeholder="名前・関係性・座席番号で検索" value="${esc(S.tq)}" oninput="S.tq=this.value;renderTicketList()">
   <div class="chips">
-    <button class="chip ${S.tfilter==='all'?'on':''}" onclick="S.tfilter='all';render()">すべて<b>${rows.length}</b></button>
-    ${S.statuses.map(s => `<button class="chip ${S.tfilter===s?'on':''}" onclick="S.tfilter='${s}';render()">${s}<b>${cnt[s]}</b></button>`).join('')}
+    ${FILTERS.map(([k, label, fn]) => `<button class="chip ${S.tfilter===k?'on':''}" onclick="S.tfilter='${k}';render()">${label}<b>${rows.filter(r => fn(r.t)).length}</b></button>`).join('')}
   </div>
   <div id="tlist"></div>`;
 }
 function renderTicketList(){
   const q = S.tq.trim().toLowerCase();
-  const rows = ticketRows().filter(r => (S.tfilter === 'all' || r.st === S.tfilter) &&
-    (!q || [r.c.name, r.c.kana, r.c.group, r.c.company].join(' ').toLowerCase().includes(q)));
+  const f = (FILTERS.find(x => x[0] === S.tfilter) || FILTERS[0])[2];
+  const rows = ticketRows().filter(r => f(r.t) &&
+    (!q || [r.c.name, r.c.kana, r.c.group, r.c.company, seatNos(r.t)].join(' ').toLowerCase().includes(q)));
   $('#tlist').innerHTML = !rows.length ? '<div class="empty">該当する人はいません</div>' :
-    `<div class="list">${rows.map(({c,t,st}) => `
-      <div class="row" onclick="openTicket('${esc(c.id)}')">
+    `<div class="list">${rows.map(({c,t}) => {
+      const no = seatNos(t);
+      return `
+      <div class="row trow" onclick="openTicket('${esc(c.id)}')">
         <div class="row-main">
-          <div class="nm">${esc(c.name)}<span class="hon">${esc(c.honorific)}</span></div>
+          <div class="nm">${esc(c.name)}<span class="hon">${esc(c.honorific)}</span>${no ? `<span class="seatno">${esc(no)}</span>` : ''}</div>
           <div class="meta">${c.group?`<span class="tag">${esc(c.group)}</span>`:''}
-            ${t && num(t.qty) ? `<span>${esc(t.seat||'席未定')} × ${num(t.qty)}枚</span>` : ''}
-            ${t && t.memo ? `<span>📝</span>` : ''}</div>
+            ${t.items.length ? `<span>${t.items.map(i => `${esc(i.seat)}×${i.qty}`).join('・')}</span>` : ''}
+            ${t.memo ? `<span>📝</span>` : ''}</div>
+          <div class="pills">
+            <button class="pill ${PILL[t.guide]}" onclick="event.stopPropagation();toggleSt('${esc(c.id)}','guide')">${t.guide}</button>
+            <button class="pill ${PILL[t.attend]}" onclick="event.stopPropagation();toggleSt('${esc(c.id)}','attend')">${t.attend}</button>
+            <button class="pill ${t.paid === '未入金' && t.attend !== '決定' ? 's0' : PILL[t.paid]}" onclick="event.stopPropagation();toggleSt('${esc(c.id)}','paid')">${t.paid}</button>
+          </div>
         </div>
-        <button class="pill s${sIdx(st)}" onclick="event.stopPropagation();advance('${esc(c.id)}')">${esc(st)}</button>
-      </div>`).join('')}</div>`;
+      </div>`; }).join('')}</div>`;
 }
 function getTicket(cid){ return S.tickets.find(t => t.eventId === S.eventId && t.customerId === cid); }
-function advance(cid){
-  const cur = getTicket(cid) || { eventId:S.eventId, customerId:cid, status:'未案内', seat:'', qty:'0', price:'', memo:'' };
-  const i = CYCLE.indexOf(cur.status);
-  const next = CYCLE[(i + 1) % CYCLE.length];
-  const t = { ...cur, status: next };
-  if (isSold(next) && !num(t.qty)) {
+function toggleSt(cid, field){
+  const cur = getTicket(cid) || blankTicket(cid);
+  const list = { guide: GUIDE, attend: ATTEND, paid: PAID }[field];
+  const t = { ...cur, items: cur.items.map(i => ({ ...i })), [field]: list[(list.indexOf(cur[field]) + 1) % list.length] };
+  if (field === 'attend' && t.attend === '決定' && !tQty(t)) {
     const ss = seatsFor(S.eventId); const s = ss[1] || ss[0];
-    t.qty = '1';
-    if (s) { t.seat = t.seat || s.name; t.price = t.price || String(s.price); }
+    if (s) t.items = [{ seat: s.name, qty: 1, price: s.price, no: '' }];
   }
+  if (field !== 'guide' && t.guide === '未案内') t.guide = '案内済';
   commitTicket(t);
 }
 const ticketQueue = {};
@@ -312,7 +371,7 @@ function commitTicket(t){
   if (S.tab === 'tickets') render();
   ticketQueue[key] = (ticketQueue[key] || Promise.resolve()).then(() => {
     const cur = S.tickets.find(x => x.eventId === t.eventId && x.customerId === t.customerId) || local;
-    const body = { ...cur };
+    const body = serTicket(cur);
     if (String(body.id).startsWith('tmp_')) delete body.id;
     return batch([{ op:'upsert', key:'tickets', obj: body }]).then(([saved]) => {
       S.tickets = S.tickets.filter(x => !(x.eventId === t.eventId && x.customerId === t.customerId));
@@ -321,39 +380,68 @@ function commitTicket(t){
     });
   }).catch(fail);
 }
+
+/* チケットの詳細：状況3項目＋席種ごとの枚数・座席番号（複数の席種を同時に選べる） */
+let TK = null;
 function openTicket(cid){
-  const c = S.customers.find(x => x.id === cid);
-  const t = getTicket(cid) || { eventId:S.eventId, customerId:cid, status:'未案内', seat:'', qty:'0', price:'', memo:'' };
+  const t = getTicket(cid) || blankTicket(cid);
+  TK = { ...t, items: t.items.map(i => ({ ...i })) };
+  renderTicketSheet();
+}
+function ticketSeatRows(){
+  // その試合の席種すべて ＋ 試合の席種に無くなった古い席種
+  const base = seatsFor(S.eventId).map(s => ({ name: s.name, price: s.price }));
+  TK.items.forEach(i => { if (!base.some(b => b.name === i.seat)) base.push({ name: i.seat, price: i.price }); });
+  return base;
+}
+function renderTicketSheet(){
+  const c = S.customers.find(x => x.id === TK.customerId);
   const ev = S.events.find(e => e.id === S.eventId);
+  const seg = (field, list) => `<div class="seg">${list.map(v =>
+    `<button class="opt ${TK[field]===v?'on':''}" onclick="TK.${field}='${v}';syncSheet()">${v}</button>`).join('')}</div>`;
   openSheet(`
     <h2>${esc(c.name)}<span class="muted" style="font-weight:400"> ${esc(c.honorific)}</span></h2>
     <div class="muted">${esc(ev.title)}・${esc(c.group||'')}</div>
     ${c.phone ? `<div class="links"><a href="tel:${esc(c.phone)}">📞 電話する</a><a href="sms:${esc(c.phone)}">💬 SMS</a></div>` : ''}
-    <div class="sec"><label>状況</label>
-      <div class="grid3" id="t_status">${S.statuses.map(s => `<button class="opt ${s===t.status?'on':''}" data-v="${s}" onclick="pick(this)">${s}</button>`).join('')}</div></div>
-    <div class="sec"><label>席種</label>
-      <div class="grid3" id="t_seat">${[...seatsFor(S.eventId), ...(t.seat && !seatsFor(S.eventId).some(s => s.name === t.seat) ? [{ name: t.seat, price: num(t.price) }] : [])].map(s => `<button class="opt ${s.name===t.seat?'on':''}" data-v="${esc(s.name)}" data-p="${s.price}" onclick="pick(this);$('#t_price').value=this.dataset.p;calc()">${esc(s.name)}<small>${yen(s.price)}</small></button>`).join('')}</div></div>
-    <div class="sec two">
-      <div><label class="fl">枚数</label><div class="stepper">
-        <button onclick="step(-1)">−</button><span class="n" id="t_qty">${num(t.qty)}</span><button onclick="step(1)">＋</button></div></div>
-      <div><label class="fl">単価</label><input class="inp" id="t_price" inputmode="numeric" value="${esc(t.price)}" oninput="calc()"></div>
+    <div class="sec"><label>① 案内</label>${seg('guide', GUIDE)}</div>
+    <div class="sec"><label>② 参加</label>${seg('attend', ATTEND)}</div>
+    <div class="sec"><label>③ 入金</label>${seg('paid', PAID)}</div>
+    <div class="sec"><label>チケット（複数の席種を選べます）</label>
+      ${ticketSeatRows().map((s, k) => {
+        const it = TK.items.find(i => i.seat === s.name) || { qty: 0, no: '', price: s.price };
+        return `<div class="tkrow ${it.qty ? 'on' : ''}">
+          <div class="tkhead">
+            <div><div class="nm" style="font-size:14px">${esc(s.name)}</div><div class="muted">${yen(it.qty ? it.price : s.price)}</div></div>
+            <div class="stepper sm">
+              <button onclick="tkStep(${k},-1)">−</button><span class="n">${it.qty}</span><button onclick="tkStep(${k},1)">＋</button>
+            </div>
+          </div>
+          ${it.qty ? `<input class="inp tkno" data-k="${k}" value="${esc(it.no)}" placeholder="座席番号（例：A-12, A-13）" oninput="tkNo(${k},this.value)">` : ''}
+        </div>`; }).join('')}
     </div>
-    <div class="f"><label class="fl">メモ</label><textarea class="inp" id="t_memo" placeholder="例：2人で来場、当日受け取り">${esc(t.memo)}</textarea></div>
-    <div class="total"><span class="muted">合計</span><b id="t_total"></b></div>
+    <div class="f"><label class="fl">メモ</label><textarea class="inp" id="t_memo" placeholder="例：当日受け取り" oninput="TK.memo=this.value">${esc(TK.memo)}</textarea></div>
+    <div class="total"><span class="muted">合計 ${tQty(TK)}枚</span><b>${yen(tAmt(TK))}</b></div>
     <div class="actions">
-      <button class="btn" onclick="saveTicketSheet('${esc(cid)}')">保存</button>
-      <button class="btn ghost" onclick="closeSheet();S.tab='customers';render();openCustomer('${esc(cid)}')">顧客情報を見る</button>
+      <button class="btn" onclick="saveTicketSheet()">保存</button>
+      <button class="btn ghost" onclick="closeSheet();S.tab='customers';render();openCustomer('${esc(TK.customerId)}')">顧客情報を見る</button>
     </div>`);
-  calc();
 }
-function pick(el){ el.parentNode.querySelectorAll('.opt').forEach(b => b.classList.toggle('on', b === el)); }
-function step(d){ const n = $('#t_qty'); n.textContent = Math.max(0, num(n.textContent) + d); calc(); }
-function calc(){ $('#t_total').textContent = yen(num($('#t_qty').textContent) * num($('#t_price').value)); }
-function saveTicketSheet(cid){
-  const old = getTicket(cid) || {};
-  const sel = id => ($(`#${id} .opt.on`) || {}).dataset?.v || '';
-  commitTicket({ ...old, eventId:S.eventId, customerId:cid, status: sel('t_status') || '未案内', seat: sel('t_seat'),
-    qty: String(num($('#t_qty').textContent)), price: $('#t_price').value.replace(/[^\d]/g,''), memo: $('#t_memo').value });
+function syncSheet(){ const y = $('#sheet').scrollTop; renderTicketSheet(); $('#sheet').scrollTop = y; }
+function tkStep(k, d){
+  const s = ticketSeatRows()[k];
+  let it = TK.items.find(i => i.seat === s.name);
+  if (!it) { it = { seat: s.name, qty: 0, price: s.price, no: '' }; TK.items.push(it); }
+  it.qty = Math.max(0, it.qty + d);
+  // 並び順を試合の席種の順にそろえる
+  const order = ticketSeatRows().map(x => x.name);
+  TK.items = TK.items.filter(i => i.qty > 0).sort((a, b) => order.indexOf(a.seat) - order.indexOf(b.seat));
+  if (tQty(TK) && TK.attend === '確認中' && d > 0) TK.attend = '決定';
+  if (TK.guide === '未案内' && tQty(TK)) TK.guide = '案内済';
+  syncSheet();
+}
+function tkNo(k, v){ const s = ticketSeatRows()[k]; const it = TK.items.find(i => i.seat === s.name); if (it) it.no = v; }
+function saveTicketSheet(){
+  commitTicket({ ...TK, memo: ($('#t_memo') || {}).value ?? TK.memo });
   closeSheet(); toast('保存しました');
 }
 
@@ -404,7 +492,7 @@ function openCustomer(id){
     ${f('company','会社名')}
     <div class="f"><label class="fl">メモ</label><textarea class="inp" id="c_memo">${esc(c.memo)}</textarea></div>
     ${hist.length ? `<div class="sec"><label>チケット履歴</label><div class="hist">${hist.map(({t,e}) =>
-      `<div><span>${esc(e.title)}</span><span><span class="pill s${sIdx(t.status)}" style="padding:2px 8px;min-width:0">${esc(t.status)}</span> ${num(t.qty)?num(t.qty)+'枚':''}</span></div>`).join('')}</div></div>` : ''}
+      `<div><span>${esc(e.title)}</span><span><span class="pill ${PILL[t.attend]}" style="padding:2px 8px;min-width:0">${esc(t.attend)}</span> <span class="pill ${PILL[t.paid]}" style="padding:2px 8px;min-width:0">${esc(t.paid)}</span> ${tQty(t)?tQty(t)+'枚':''}</span></div>`).join('')}</div></div>` : ''}
     <div class="actions">
       <button class="btn" onclick="saveCustomerSheet('${esc(id||'')}')">保存</button>
       ${id ? `<button class="btn danger" onclick="armDelete(this,()=>removeCustomer('${esc(id)}'))">削除</button>` : ''}
@@ -429,8 +517,8 @@ function removeCustomer(id){
 function viewEvents(){
   if (!S.events.length) return '<div class="empty">まだ試合が登録されていません<br>右下の＋から追加できます</div>';
   return [...S.events].sort((a,b) => b.date.localeCompare(a.date)).map(e => {
-    const ts = S.tickets.filter(t => t.eventId === e.id && isSold(t.status));
-    const q = ts.reduce((s,t) => s + num(t.qty), 0), a = ts.reduce((s,t) => s + num(t.qty) * num(t.price), 0);
+    const ts = S.tickets.filter(t => t.eventId === e.id && t.attend === '決定');
+    const q = ts.reduce((s,t) => s + tQty(t), 0), a = ts.reduce((s,t) => s + tAmt(t), 0);
     return `<div class="card" onclick="openEvent('${esc(e.id)}')" style="cursor:pointer">
       <div class="muted">${fmtDate(e.date)}${e.venue ? '・' + esc(e.venue) : ''}</div>
       <div class="nm" style="font-size:17px;margin-top:2px">${esc(e.title)}</div>
@@ -516,10 +604,10 @@ function saveEventSheet(){
     ...list.map((x, i) => ({ op:'upsert', key:'seats', obj: { id: x.id || newId(), eventId: e.id, name: x.name, price: String(x.price), order: String(i) } })),
   ];
   // 席種名を変えたら、この試合のチケットの席種名も合わせる
-  list.forEach(x => {
-    if (x.orig && x.orig !== x.name) S.tickets.filter(t => t.eventId === e.id && t.seat === x.orig)
-      .forEach(t => ops.push({ op:'upsert', key:'tickets', obj: { id: t.id, seat: x.name } }));
-  });
+  const ren = {}; list.forEach(x => { if (x.orig && x.orig !== x.name) ren[x.orig] = x.name; });
+  if (Object.keys(ren).length) S.tickets.filter(t => t.eventId === e.id && t.items.some(i => ren[i.seat]))
+    .forEach(t => ops.push({ op:'upsert', key:'tickets',
+      obj: serTicket({ ...t, items: t.items.map(i => ({ ...i, seat: ren[i.seat] || i.seat })) }) }));
   closeSheet();
   batch(ops).then(() => { if (isNew || !S.eventId) S.eventId = e.id; toast('保存しました'); load(); }).catch(fail);
 }
