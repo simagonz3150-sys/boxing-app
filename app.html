@@ -65,6 +65,12 @@
   .mine .v{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
   .mine .sub{font-size:11px;text-align:right;line-height:1.6;font-variant-numeric:tabular-nums}
   .mine-tag{background:var(--accent-soft) !important;color:var(--accent) !important;font-weight:600}
+  .hrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px dashed var(--line)}
+  .hrow>div{flex:1}
+  .htitle{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hmeta{font-size:12px;color:var(--sub);margin-top:2px}
+  .hdel{flex:none;border:0;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:600;background:var(--accent-soft);color:var(--accent)}
+  .hdel.armed{background:var(--accent);color:#fff}
   .s6{color:var(--accent);background:var(--accent-soft)}
   .trow{align-items:flex-start}
   .seatno{margin-left:8px;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:1px 7px;border-radius:6px;vertical-align:2px}
@@ -130,7 +136,6 @@
   .links{display:flex;gap:8px;margin-top:8px}
   .links a{font-size:13px;color:var(--st1);text-decoration:none;background:var(--st1b);padding:5px 10px;border-radius:8px}
   .hist{font-size:13px;margin-top:6px}
-  .hist div{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--line)}
 
   .toast{position:fixed;left:50%;bottom:calc(140px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;
     padding:10px 16px;border-radius:99px;font-size:13px;z-index:30;opacity:0;transition:opacity .2s;pointer-events:none}
@@ -465,6 +470,7 @@ function renderTicketSheet(){
     <div class="actions">
       <button class="btn" onclick="saveTicketSheet()">保存</button>
       <button class="btn ghost" onclick="closeSheet();S.tab='customers';render();openCustomer('${esc(TK.customerId)}')">顧客情報を見る</button>
+      ${TK.id && !String(TK.id).startsWith('tmp_') ? `<button class="btn danger" onclick="armDelete(this,()=>{closeSheet();removeTicket('${esc(TK.id)}')})">この試合の購入記録を削除</button>` : ''}
     </div>`);
 }
 function syncSheet(){ const y = $('#sheet').scrollTop; renderTicketSheet(); $('#sheet').scrollTop = y; }
@@ -532,8 +538,16 @@ function openCustomer(id){
     ${f('addr2','建物名・部屋番号（任意）','placeholder="例：サンプルマンション101号室"')}
     ${f('company','会社名')}
     <div class="f"><label class="fl">メモ</label><textarea class="inp" id="c_memo">${esc(c.memo)}</textarea></div>
-    ${hist.length ? `<div class="sec"><label>チケット履歴</label><div class="hist">${hist.map(({t,e}) =>
-      `<div><span>${esc(e.title)}</span><span><span class="pill ${PILL[t.attend]}" style="padding:2px 8px;min-width:0">${esc(t.attend)}</span> <span class="pill ${PILL[t.paid]}" style="padding:2px 8px;min-width:0">${esc(t.paid)}</span> ${tQty(t)?tQty(t)+'枚':''}</span></div>`).join('')}</div></div>` : ''}
+    ${hist.length ? `<div class="sec"><label>チケット購入履歴</label><div class="hist">${hist.map(({t,e}) => `
+      <div class="hrow">
+        <div style="min-width:0">
+          <div class="htitle">${esc(e.title)}</div>
+          <div class="hmeta">${fmtDate(e.date)}　${t.items.map(i => `${esc(i.seat)}×${i.qty}`).join('・') || 'チケットなし'}${tAmt(t) ? '　' + yen(tAmt(t)) : ''}</div>
+          <div style="margin-top:4px"><span class="pill ${PILL[t.attend]}" style="padding:2px 8px;min-width:0">${esc(t.attend)}</span>
+            <span class="pill ${t.paid === '未入金' && t.attend !== '決定' ? 's0' : PILL[t.paid]}" style="padding:2px 8px;min-width:0">${esc(t.paid)}</span></div>
+        </div>
+        <button class="hdel" onclick="armSmall(this,()=>removeTicket('${esc(t.id)}',this.closest('.hrow')))">削除</button>
+      </div>`).join('')}</div></div>` : ''}
     <div class="actions">
       <button class="btn" onclick="saveCustomerSheet('${esc(id||'')}')">保存</button>
       ${id ? `<button class="btn danger" onclick="armDelete(this,()=>removeCustomer('${esc(id)}'))">削除</button>` : ''}
@@ -660,6 +674,19 @@ function removeEvent(id){
   if (S.eventId === id) S.eventId = defaultEvent(); render();
   batch([{ op:'remove', key:'events', id }, { op:'removeWhere', key:'tickets', field:'eventId', value:id },
          { op:'removeWhere', key:'seats', field:'eventId', value:id }]).then(() => toast('削除しました')).catch(fail);
+}
+
+/* チケットの購入記録を1件削除（顧客の履歴・チケット詳細から） */
+function removeTicket(tid, rowEl){
+  S.tickets = S.tickets.filter(t => t.id !== tid);
+  if (rowEl) rowEl.remove();
+  if (!$('#ov').classList.contains('open') || S.tab !== 'customers') render();
+  batch([{ op:'remove', key:'tickets', id: tid }]).then(() => toast('購入記録を削除しました')).catch(fail);
+}
+function armSmall(btn, fn){
+  if (btn.classList.contains('armed')) return fn();
+  btn.classList.add('armed'); btn.textContent = '本当に削除？';
+  setTimeout(() => { btn.classList.remove('armed'); btn.textContent = '削除'; }, 3000);
 }
 
 /* ---- 封筒の宛名印刷（長形3号・縦書き） ---- */
