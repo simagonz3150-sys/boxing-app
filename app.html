@@ -74,8 +74,11 @@
   .s6{color:var(--accent);background:var(--accent-soft)}
   .trow{align-items:flex-start}
   .seatno{margin-left:8px;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:1px 7px;border-radius:6px;vertical-align:2px}
-  .pills{display:flex;gap:6px;margin-top:8px}
-  .pills .pill{min-width:0;padding:6px 11px}
+  .pills{display:flex;gap:8px;margin-top:6px;padding:4px 0}
+  .pills .pill{min-width:76px;min-height:40px;padding:8px 12px;font-size:13px}
+  button{touch-action:manipulation;-webkit-user-select:none;user-select:none}
+  .pill{transition:transform .08s}
+  .pill:active{transform:scale(.92);filter:brightness(.92)}
   .seg{display:flex;gap:6px}.seg .opt{flex:1}
   .tkrow{border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
   .tkrow.on{border-color:var(--ink)}
@@ -350,7 +353,7 @@ function viewTickets(){
   const opts = [...S.events].sort((a,b) => b.date.localeCompare(a.date))
     .map(e => `<option value="${esc(e.id)}" ${e.id===S.eventId?'selected':''}>${esc(e.title)}（${fmtDate(e.date)}）</option>`).join('');
   return `
-  <div class="card">
+  <div class="card" id="tsum">
     <div class="evhead"><select class="evsel" onchange="S.eventId=this.value;render()">${opts}</select><span class="caret">▾</span></div>
     <div class="stats">
       <div class="stat hl"><div class="k">確定枚数</div><div class="v">${qty}枚</div></div>
@@ -365,10 +368,28 @@ function viewTickets(){
     ${Object.keys(gsum).length ? `<div class="groups">${Object.entries(gsum).sort((a,b)=>b[1]-a[1]).map(([k,v]) => `<span>${esc(k)} <b>${v}</b></span>`).join('')}</div>` : ''}
   </div>
   <input class="search" placeholder="名前・関係性・座席番号で検索" value="${esc(S.tq)}" oninput="S.tq=this.value;renderTicketList()">
-  <div class="chips">
+  <div class="chips" id="tchips">
     ${FILTERS.map(([k, label, fn]) => `<button class="chip ${S.tfilter===k?'on':''}" onclick="S.tfilter='${k}';render()">${label}<b>${rows.filter(r => fn(r.t)).length}</b></button>`).join('')}
   </div>
   <div id="tlist"></div>`;
+}
+function ticketRowHTML({ c, t }){
+  const no = seatNos(t);
+  return `
+      <div class="row trow" data-cid="${esc(c.id)}" onclick="openTicket('${esc(c.id)}')">
+        <div class="row-main">
+          <div class="nm">${esc(c.name)}<span class="hon">${esc(c.honorific)}</span>${no ? `<span class="seatno">${esc(no)}</span>` : ''}</div>
+          <div class="meta">${c.group?`<span class="tag">${esc(c.group)}</span>`:''}
+            ${t.items.length ? `<span>${t.items.map(i => `${esc(i.seat)}×${i.qty}`).join('・')}</span>` : ''}
+            ${t.delivery ? `<span>${t.delivery === '郵送' ? '✉️' : t.delivery === '手渡し' ? '🤝' : '🎫'}${esc(t.delivery)}</span>` : ''}
+            ${t.memo ? `<span>📝</span>` : ''}</div>
+          <div class="pills" onclick="event.stopPropagation()">
+            <button class="pill ${PILL[t.guide]}" onclick="toggleSt('${esc(c.id)}','guide')">${t.guide}</button>
+            <button class="pill ${PILL[t.attend]}" onclick="toggleSt('${esc(c.id)}','attend')">${t.attend}</button>
+            <button class="pill ${t.paid === '未入金' && t.attend !== '決定' ? 's0' : PILL[t.paid]}" onclick="toggleSt('${esc(c.id)}','paid')">${t.paid}</button>
+          </div>
+        </div>
+      </div>`;
 }
 function renderTicketList(){
   const q = S.tq.trim().toLowerCase();
@@ -376,23 +397,19 @@ function renderTicketList(){
   const rows = ticketRows().filter(r => f(r.t) &&
     (!q || [r.c.name, r.c.kana, r.c.group, r.c.company, seatNos(r.t)].join(' ').toLowerCase().includes(q)));
   $('#tlist').innerHTML = !rows.length ? '<div class="empty">該当する人はいません</div>' :
-    `<div class="list">${rows.map(({c,t}) => {
-      const no = seatNos(t);
-      return `
-      <div class="row trow" onclick="openTicket('${esc(c.id)}')">
-        <div class="row-main">
-          <div class="nm">${esc(c.name)}<span class="hon">${esc(c.honorific)}</span>${no ? `<span class="seatno">${esc(no)}</span>` : ''}</div>
-          <div class="meta">${c.group?`<span class="tag">${esc(c.group)}</span>`:''}
-            ${t.items.length ? `<span>${t.items.map(i => `${esc(i.seat)}×${i.qty}`).join('・')}</span>` : ''}
-            ${t.delivery ? `<span>${t.delivery === '郵送' ? '✉️' : t.delivery === '手渡し' ? '🤝' : '🎫'}${esc(t.delivery)}</span>` : ''}
-            ${t.memo ? `<span>📝</span>` : ''}</div>
-          <div class="pills">
-            <button class="pill ${PILL[t.guide]}" onclick="event.stopPropagation();toggleSt('${esc(c.id)}','guide')">${t.guide}</button>
-            <button class="pill ${PILL[t.attend]}" onclick="event.stopPropagation();toggleSt('${esc(c.id)}','attend')">${t.attend}</button>
-            <button class="pill ${t.paid === '未入金' && t.attend !== '決定' ? 's0' : PILL[t.paid]}" onclick="event.stopPropagation();toggleSt('${esc(c.id)}','paid')">${t.paid}</button>
-          </div>
-        </div>
-      </div>`; }).join('')}</div>`;
+    `<div class="list">${rows.map(ticketRowHTML).join('')}</div>`;
+}
+/* 1人分だけ書き換える（一覧全体は描き直さない＝続けてタップしても取りこぼさない） */
+function refreshTicketPartial(cid){
+  if (S.tab !== 'tickets' || !$('#tsum')) return render();
+  const tmp = document.createElement('div');
+  tmp.innerHTML = viewTickets();
+  $('#tsum').replaceWith(tmp.querySelector('#tsum'));
+  $('#tchips').replaceWith(tmp.querySelector('#tchips'));
+  const row = ticketRows().find(r => r.c.id === cid);
+  const el = document.querySelector(`#tlist [data-cid="${CSS.escape(cid)}"]`);
+  if (row && el) { const w = document.createElement('div'); w.innerHTML = ticketRowHTML(row).trim(); el.replaceWith(w.firstChild); }
+  else renderTicketList();
 }
 function getTicket(cid){ return S.tickets.find(t => t.eventId === S.eventId && t.customerId === cid); }
 function toggleSt(cid, field){
@@ -412,7 +429,7 @@ function commitTicket(t){
   const key = t.eventId + '|' + t.customerId;
   const local = { ...t, id: t.id || ('tmp_' + Math.random()) };
   replaceLocal('tickets', local);
-  if (S.tab === 'tickets') render();
+  if (S.tab === 'tickets') refreshTicketPartial(t.customerId);
   ticketQueue[key] = (ticketQueue[key] || Promise.resolve()).then(() => {
     const cur = S.tickets.find(x => x.eventId === t.eventId && x.customerId === t.customerId) || local;
     const body = serTicket(cur);
@@ -420,7 +437,6 @@ function commitTicket(t){
     return batch([{ op:'upsert', key:'tickets', obj: body }]).then(([saved]) => {
       S.tickets = S.tickets.filter(x => !(x.eventId === t.eventId && x.customerId === t.customerId));
       S.tickets.push({ ...cur, id: saved.id });
-      if (S.tab === 'tickets' && !$('#ov').classList.contains('open')) render();
     });
   }).catch(fail);
 }
