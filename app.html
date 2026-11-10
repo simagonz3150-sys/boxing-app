@@ -392,7 +392,7 @@ function ticketRowHTML({ c, t }){
           <div class="pills" onclick="event.stopPropagation()">
             <button class="pill ${PILL[t.guide]}" onclick="toggleSt('${esc(c.id)}','guide')">${t.guide}</button>
             <button class="pill ${t.guide === '未案内' ? 's0' : PILL[t.attend]}" onclick="toggleSt('${esc(c.id)}','attend')">${t.attend}</button>
-            <button class="pill ${t.paid === '未入金' && !tQty(t) ? 's0' : PILL[t.paid]}" onclick="toggleSt('${esc(c.id)}','paid')">${t.paid}</button>
+            <button class="pill ${t.guide === '未案内' || (t.paid === '未入金' && !tQty(t)) ? 's0' : PILL[t.paid]}" onclick="toggleSt('${esc(c.id)}','paid')">${t.paid}</button>
           </div>
         </div>
       </div>`;
