@@ -64,6 +64,8 @@
     font-size:14px;font-variant-numeric:tabular-nums}
   .seatsum>div:last-child{border-bottom:0}
   .seatsum .sn{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .seatsum .sn small{display:block;font-weight:400;font-size:11px;color:var(--sub);margin-top:1px}
+  .seatsum>div{align-items:center}
   .seatsum .sq,.seatsum .sa{text-align:right}
   .seatsum .sa{font-weight:700}
   .seatsum .zero{color:var(--sub)}.seatsum .zero .sa{font-weight:400}
@@ -365,9 +367,9 @@ function viewTickets(){
   const ev = S.events.find(e => e.id === S.eventId);
   const gsum = {}; sold.forEach(r => { const k = r.c.group || '未分類'; gsum[k] = (gsum[k]||0) + tQty(r.t); });
   // 席種ごとの合計（試合の席種の順番で。試合の席種に無い古い席種は後ろに）
-  const bySeat = new Map(seatsFor(S.eventId).map(x => [x.name, { qty: 0, amt: 0 }]));
+  const bySeat = new Map(seatsFor(S.eventId).map(x => [x.name, { qty: 0, amt: 0, price: x.price }]));
   sold.forEach(r => r.t.items.forEach(i => {
-    if (!bySeat.has(i.seat)) bySeat.set(i.seat, { qty: 0, amt: 0 });
+    if (!bySeat.has(i.seat)) bySeat.set(i.seat, { qty: 0, amt: 0, price: i.price });
     const b = bySeat.get(i.seat); b.qty += i.qty; b.amt += i.qty * i.price;
   }));
   const opts = [...S.events].sort((a,b) => b.date.localeCompare(a.date))
@@ -381,7 +383,7 @@ function viewTickets(){
       <div class="stat"><div class="k">未入金</div><div class="v" style="color:${amt-paid?'var(--accent)':'inherit'}">${yen(amt-paid)}</div></div>
     </div>
     <div class="seatsum">${[...bySeat].map(([name, b]) => `
-      <div class="${b.qty ? '' : 'zero'}"><span class="sn">${esc(name)}</span><span class="sq">${b.qty}枚</span><span class="sa">${yen(b.amt)}</span></div>`).join('')}
+      <div class="${b.qty ? '' : 'zero'}"><span class="sn">${esc(name)}<small>単価 ${yen(b.price)}</small></span><span class="sq">${b.qty}枚</span><span class="sa">${yen(b.amt)}</span></div>`).join('')}
     </div>
     <div class="mine">
       <div><div class="k">自分の取り分（${shareOf(ev)}%）</div><div class="v">${yen(cut(amt, ev))}</div></div>
