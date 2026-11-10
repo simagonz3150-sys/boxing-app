@@ -428,10 +428,6 @@ function toggleSt(cid, field){
   const cur = getTicket(cid) || blankTicket(cid);
   const list = { guide: GUIDE, attend: ATTEND, paid: PAID }[field];
   const t = { ...cur, items: cur.items.map(i => ({ ...i })), [field]: list[(list.indexOf(cur[field]) + 1) % list.length] };
-  if (field === 'attend' && t.attend === '決定' && !tQty(t)) {
-    const ss = seatsFor(S.eventId); const s = ss[1] || ss[0];
-    if (s) t.items = [{ seat: s.name, qty: 1, price: s.price, no: '' }];
-  }
   applyStatusRules(t, field);
   commitTicket(t);
 }
