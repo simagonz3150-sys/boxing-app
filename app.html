@@ -187,6 +187,7 @@
 <nav id="nav">
   <button data-tab="tickets" class="on"><span class="ic">🎫</span>チケット</button>
   <button data-tab="customers"><span class="ic">👥</span>顧客</button>
+  <button data-tab="sponsors"><span class="ic">🩳</span>スポンサー</button>
   <button data-tab="events"><span class="ic">🥊</span>試合</button>
 </nav>
 <div id="fab"></div>
@@ -225,6 +226,11 @@ const Demo = (() => {
     ],
     tickets: [],
     seats: Object.entries(price).map(([name, p], i) => ({ id:'s'+i, name, price:String(p) })),
+    sponsors: [
+      { id:'sp1', eventId:'e1', company:'株式会社サンプル建設', contact:'佐藤', phone:'052-000-0000', amount:'50000', position:'ベルト（前）', logo:'受領済', paid:'入金済', memo:'' },
+      { id:'sp2', eventId:'e1', company:'〇〇整骨院', contact:'鈴木院長', phone:'', amount:'30000', position:'右脚（前）', logo:'未受領', paid:'未入金', memo:'ロゴはAIデータで依頼中' },
+      { id:'sp3', eventId:'e0', company:'株式会社サンプル建設', contact:'佐藤', phone:'052-000-0000', amount:'50000', position:'ベルト（前）', logo:'受領済', paid:'入金済', memo:'' },
+    ],
   };
   const seed = [['c0','決定','指定席',2],['c1','入金済','リングサイド',1],['c2','確認中'],['c3','入金済','指定席',4],
     ['c4','案内済'],['c5','決定','自由席',3],['c7','入金済','リングサイド',2],['c8','確認中'],['c9','決定','指定席',5],['c10','見送り']];
@@ -246,7 +252,7 @@ const Demo = (() => {
 })();
 
 /* ========= 状態 ========= */
-const S = { customers:[], events:[], tickets:[], seats:[], statuses:[],
+const S = { customers:[], events:[], tickets:[], seats:[], sponsors:[], statuses:[],
   tab:'tickets', eventId:null, tq:'', tfilter:'all', cq:'', cgroup:'all' };
 
 /* ========= ユーティリティ ========= */
@@ -276,9 +282,10 @@ function fail(e){ toast('保存に失敗しました：' + (e && e.message || e)
 /* ========= 読み込み ========= */
 async function load(){
   try {
-    const d = await getAll(['customers', 'events', 'tickets', 'seats']);
+    const d = await getAll(['customers', 'events', 'tickets', 'seats', 'sponsors']);
     Object.assign(S, { customers: d.customers, events: d.events, tickets: d.tickets.map(normTicket), statuses: STATUSES,
-      seats: d.seats.map(x => ({ ...x, price: num(x.price), order: num(x.order) })) });
+      seats: d.seats.map(x => ({ ...x, price: num(x.price), order: num(x.order) })),
+      sponsors: d.sponsors.map(x => ({ ...x, logo: x.logo || '未受領', paid: x.paid || '未入金' })) });
     if (!S.events.find(e => e.id === S.eventId)) S.eventId = defaultEvent();
     render();
   } catch (e) { $('#main').innerHTML = `<div class="empty">読み込みに失敗しました<br><small>${esc(e.message||e)}</small></div>`; }
@@ -294,10 +301,11 @@ function defaultEvent(){
 function render(){
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab));
   $('#demo').outerHTML = IS_GAS ? '<span id="demo"></span>' : '<span id="demo" class="demo">プレビュー（架空データ）</span>';
-  const v = { tickets: viewTickets, customers: viewCustomers, events: viewEvents }[S.tab];
+  const v = { tickets: viewTickets, customers: viewCustomers, sponsors: viewSponsors, events: viewEvents }[S.tab];
   $('#main').innerHTML = v();
   $('#fab').innerHTML = S.tab === 'customers' ? '<button class="fab" onclick="openCustomer()">＋</button>'
-                      : S.tab === 'events'    ? '<button class="fab" onclick="openEvent()">＋</button>' : '';
+                      : S.tab === 'events'    ? '<button class="fab" onclick="openEvent()">＋</button>'
+                      : S.tab === 'sponsors' && S.events.length ? '<button class="fab" onclick="openSponsor()">＋</button>' : '';
   if (S.tab === 'tickets') renderTicketList();
   if (S.tab === 'customers') renderCustList();
 }
@@ -608,6 +616,110 @@ function removeCustomer(id){
   closeSheet();
   S.customers = S.customers.filter(x => x.id !== id); S.tickets = S.tickets.filter(t => t.customerId !== id); render();
   batch([{ op:'remove', key:'customers', id }, { op:'removeWhere', key:'tickets', field:'customerId', value:id }]).then(() => toast('削除しました')).catch(fail);
+}
+
+/* ---- トランクススポンサー（試合ごと） ---- */
+const LOGO = ['未受領','受領済'];
+const POSITIONS = ['ベルト（前）','ベルト（後ろ）','右脚（前）','左脚（前）','右脚（後ろ）','左脚（後ろ）','裾（右）','裾（左）'];
+const PILL2 = { '未受領':'s6', '受領済':'s3', '未入金':'s6', '入金済':'s4' };
+function eventPicker(){
+  const opts = [...S.events].sort((a,b) => b.date.localeCompare(a.date))
+    .map(e => `<option value="${esc(e.id)}" ${e.id===S.eventId?'selected':''}>${esc(e.title)}（${fmtDate(e.date)}）</option>`).join('');
+  return `<div class="evhead"><select class="evsel" onchange="S.eventId=this.value;render()">${opts}</select><span class="caret">▾</span></div>`;
+}
+const sponsorsOf = eid => S.sponsors.filter(x => x.eventId === eid).sort((a,b) => num(a.order) - num(b.order) || a.company.localeCompare(b.company, 'ja'));
+function viewSponsors(){
+  if (!S.events.length) return `<div class="empty">まだ試合が登録されていません<br><br>
+    <button class="btn" style="width:auto" onclick="S.tab='events';render();openEvent()">試合を追加する</button></div>`;
+  const list = sponsorsOf(S.eventId);
+  const total = list.reduce((s,x) => s + num(x.amount), 0);
+  const paid = list.filter(x => x.paid === '入金済').reduce((s,x) => s + num(x.amount), 0);
+  const noLogo = list.filter(x => x.logo !== '受領済').length;
+  // 前の試合（日付が前で、スポンサーがいる試合）
+  const ev = S.events.find(e => e.id === S.eventId);
+  const prev = [...S.events].filter(e => e.id !== S.eventId && e.date <= (ev ? ev.date : '9') && sponsorsOf(e.id).length)
+    .sort((a,b) => b.date.localeCompare(a.date))[0];
+  return `
+  <div class="card">
+    ${eventPicker()}
+    <div class="stats">
+      <div class="stat hl"><div class="k">スポンサー</div><div class="v">${list.length}社</div></div>
+      <div class="stat"><div class="k">協賛金合計</div><div class="v">${yen(total)}</div></div>
+      <div class="stat"><div class="k">未入金</div><div class="v" style="color:${total-paid?'var(--accent)':'inherit'}">${yen(total-paid)}</div></div>
+    </div>
+    ${noLogo ? `<div class="muted" style="margin-top:10px;color:var(--accent)">ロゴ未受領が ${noLogo}社 あります</div>` : ''}
+    ${!list.length && prev ? `<button class="btn ghost" style="margin-top:12px" onclick="copySponsors('${esc(prev.id)}')">「${esc(prev.title)}」のスポンサーをコピー</button>` : ''}
+  </div>
+  ${list.length ? `<div class="list">${list.map(x => `
+    <div class="row trow" onclick="openSponsor('${esc(x.id)}')">
+      <div class="row-main">
+        <div class="nm">${esc(x.company)}${x.contact ? `<span class="hon">${esc(x.contact)}</span>` : ''}${x.position ? `<span class="seatno">${esc(x.position)}</span>` : ''}</div>
+        <div class="meta"><span class="tag">${yen(num(x.amount))}</span>${x.memo ? '<span>📝</span>' : ''}</div>
+        <div class="pills" onclick="event.stopPropagation()">
+          <button class="pill ${PILL2[x.logo]}" onclick="toggleSp('${esc(x.id)}','logo')">ロゴ${x.logo}</button>
+          <button class="pill ${PILL2[x.paid]}" onclick="toggleSp('${esc(x.id)}','paid')">${x.paid}</button>
+        </div>
+      </div>
+    </div>`).join('')}</div>`
+  : '<div class="empty">この試合のスポンサーはまだいません<br>右下の＋から追加できます</div>'}`;
+}
+function toggleSp(id, field){
+  const x = S.sponsors.find(s => s.id === id); if (!x) return;
+  const list = field === 'logo' ? LOGO : PAID;
+  x[field] = list[(list.indexOf(x[field]) + 1) % list.length];
+  const y = window.scrollY; render(); window.scrollTo(0, y);
+  batch([{ op:'upsert', key:'sponsors', obj: { id: x.id, [field]: x[field] } }]).catch(fail);
+}
+let SP = null;
+function openSponsor(id){
+  const x = S.sponsors.find(s => s.id === id);
+  SP = x ? { ...x } : { id:'', eventId:S.eventId, company:'', contact:'', phone:'', email:'', amount:'', position:'', logo:'未受領', paid:'未入金', memo:'' };
+  // 過去に登録した会社名を候補に
+  const known = [...new Set(S.sponsors.map(s => s.company).filter(Boolean))];
+  const f = (k, label, attrs='') => `<div class="f"><label class="fl">${label}</label><input class="inp" id="sp_${k}" value="${esc(SP[k])}" ${attrs}></div>`;
+  const seg = (field, list) => `<div class="seg">${list.map(v =>
+    `<button class="opt ${SP[field]===v?'on':''}" onclick="SP.${field}='${v}';this.parentNode.querySelectorAll('.opt').forEach(b=>b.classList.toggle('on',b===this))">${v}</button>`).join('')}</div>`;
+  openSheet(`
+    <h2>${x ? 'スポンサーを編集' : 'スポンサーを追加'}</h2>
+    <div class="muted">${esc((S.events.find(e => e.id === SP.eventId) || {}).title || '')}</div>
+    ${f('company', '会社名・お店の名前 *', 'list="splist" onchange="fillSponsor(this.value)"')}
+    <datalist id="splist">${known.map(k => `<option value="${esc(k)}">`).join('')}</datalist>
+    <div class="two">${f('contact', '担当者')}${f('amount', '協賛金額（円）', 'inputmode="numeric"')}</div>
+    <div class="two">${f('phone', '電話番号', 'type="tel" inputmode="tel"')}${f('email', 'メール', 'type="email"')}</div>
+    ${f('position', 'ロゴの位置（トランクス）', 'list="poslist" placeholder="例：ベルト（前）"')}
+    <datalist id="poslist">${POSITIONS.map(p => `<option value="${p}">`).join('')}</datalist>
+    <div class="sec"><label>ロゴデータ</label>${seg('logo', LOGO)}</div>
+    <div class="sec"><label>入金</label>${seg('paid', PAID)}</div>
+    <div class="f"><label class="fl">メモ</label><textarea class="inp" id="sp_memo" placeholder="例：ロゴはAIデータで依頼中">${esc(SP.memo)}</textarea></div>
+    ${SP.phone ? `<div class="links"><a href="tel:${esc(SP.phone)}">📞 電話する</a></div>` : ''}
+    <div class="actions">
+      <button class="btn" onclick="saveSponsor()">保存</button>
+      ${x ? `<button class="btn danger" onclick="armDelete(this,()=>removeSponsor('${esc(x.id)}'))">削除</button>` : ''}
+    </div>`);
+}
+/* 過去に登録した会社を選んだら、担当者・連絡先などを自動で入れる */
+function fillSponsor(name){
+  const last = [...S.sponsors].reverse().find(s => s.company === name);
+  if (!last) return;
+  ['contact','phone','email','amount','position'].forEach(k => { const el = $('#sp_' + k); if (el && !el.value) el.value = last[k] || ''; });
+}
+function saveSponsor(){
+  ['company','contact','phone','email','amount','position','memo'].forEach(k => SP[k] = $('#sp_' + k).value.trim());
+  SP.amount = SP.amount.replace(/[^\d]/g, '');
+  if (!SP.company) { toast('会社名を入力してください'); return; }
+  const o = { ...SP }; if (!o.id) o.id = newId(); delete o.updatedAt;
+  replaceLocal('sponsors', o); closeSheet(); render();
+  batch([{ op:'upsert', key:'sponsors', obj: o }]).then(() => toast('保存しました')).catch(fail);
+}
+function removeSponsor(id){
+  closeSheet(); S.sponsors = S.sponsors.filter(x => x.id !== id); render();
+  batch([{ op:'remove', key:'sponsors', id }]).then(() => toast('削除しました')).catch(fail);
+}
+function copySponsors(fromId){
+  const list = sponsorsOf(fromId).map(x => ({ ...x, id: newId(), eventId: S.eventId, logo: x.logo, paid: '未入金', memo: '' }));
+  list.forEach(o => { delete o.updatedAt; S.sponsors.push(o); });
+  render();
+  batch(list.map(o => ({ op:'upsert', key:'sponsors', obj: o }))).then(() => toast(`${list.length}社をコピーしました`)).catch(fail);
 }
 
 /* ---- 試合 ---- */
