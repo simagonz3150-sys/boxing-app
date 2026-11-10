@@ -59,6 +59,14 @@
   .s0{color:var(--st0);background:var(--st0b)} .s1{color:var(--st1);background:var(--st1b)}
   .s2{color:var(--st2);background:var(--st2b)} .s3{color:var(--st3);background:var(--st3b)}
   .s4{color:var(--st4);background:var(--st4b)} .s5{color:var(--st5);background:var(--st5b);text-decoration:line-through}
+  .seatsum{margin-top:8px;border:1px solid var(--line);border-radius:10px;padding:2px 12px}
+  .seatsum>div{display:grid;grid-template-columns:minmax(0,1fr) 56px 96px;gap:8px;padding:8px 0;border-bottom:1px dashed var(--line);
+    font-size:14px;font-variant-numeric:tabular-nums}
+  .seatsum>div:last-child{border-bottom:0}
+  .seatsum .sn{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .seatsum .sq,.seatsum .sa{text-align:right}
+  .seatsum .sa{font-weight:700}
+  .seatsum .zero{color:var(--sub)}.seatsum .zero .sa{font-weight:400}
   .mine{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px;padding:10px 12px;border-radius:10px;
     background:var(--accent-soft);color:var(--accent)}
   .mine .k{font-size:11px;font-weight:600}
@@ -356,6 +364,12 @@ function viewTickets(){
   const paid = sold.filter(r => r.t.paid === '入金済').reduce((s,r) => s + tAmt(r.t), 0);
   const ev = S.events.find(e => e.id === S.eventId);
   const gsum = {}; sold.forEach(r => { const k = r.c.group || '未分類'; gsum[k] = (gsum[k]||0) + tQty(r.t); });
+  // 席種ごとの合計（試合の席種の順番で。試合の席種に無い古い席種は後ろに）
+  const bySeat = new Map(seatsFor(S.eventId).map(x => [x.name, { qty: 0, amt: 0 }]));
+  sold.forEach(r => r.t.items.forEach(i => {
+    if (!bySeat.has(i.seat)) bySeat.set(i.seat, { qty: 0, amt: 0 });
+    const b = bySeat.get(i.seat); b.qty += i.qty; b.amt += i.qty * i.price;
+  }));
   const opts = [...S.events].sort((a,b) => b.date.localeCompare(a.date))
     .map(e => `<option value="${esc(e.id)}" ${e.id===S.eventId?'selected':''}>${esc(e.title)}（${fmtDate(e.date)}）</option>`).join('');
   return `
@@ -365,6 +379,9 @@ function viewTickets(){
       <div class="stat hl"><div class="k">チケット枚数</div><div class="v">${qty}枚</div></div>
       <div class="stat"><div class="k">売上見込み</div><div class="v">${yen(amt)}</div></div>
       <div class="stat"><div class="k">未入金</div><div class="v" style="color:${amt-paid?'var(--accent)':'inherit'}">${yen(amt-paid)}</div></div>
+    </div>
+    <div class="seatsum">${[...bySeat].map(([name, b]) => `
+      <div class="${b.qty ? '' : 'zero'}"><span class="sn">${esc(name)}</span><span class="sq">${b.qty}枚</span><span class="sa">${yen(b.amt)}</span></div>`).join('')}
     </div>
     <div class="mine">
       <div><div class="k">自分の取り分（${shareOf(ev)}%）</div><div class="v">${yen(cut(amt, ev))}</div></div>
