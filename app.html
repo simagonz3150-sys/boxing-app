@@ -302,7 +302,7 @@ const FILTERS = [
   ['確認中', '確認中', t => t.attend === '確認中'],
   ['決定', '決定', t => t.attend === '決定'],
   ['見送り', '見送り', t => t.attend === '見送り'],
-  ['未入金', '未入金（決定）', t => t.attend === '決定' && t.paid === '未入金'],
+  ['未入金', '未入金（チケットあり）', t => tQty(t) > 0 && t.paid === '未入金'],
   ['入金済', '入金済', t => t.paid === '入金済'],
 ];
 const DELIVERY = ['郵送','手渡し','当日受付'];
@@ -349,7 +349,8 @@ function viewTickets(){
   if (!S.events.length) return `<div class="empty">まだ試合が登録されていません<br><br>
     <button class="btn" style="width:auto" onclick="S.tab='events';render();openEvent()">試合を追加する</button></div>`;
   const rows = ticketRows();
-  const sold = rows.filter(r => r.t.attend === '決定');
+  // 枚数・売上は「チケット入力」の内容だけで数える（参加の状況とは連動しない）
+  const sold = rows.filter(r => tQty(r.t) > 0);
   const qty = sold.reduce((s,r) => s + tQty(r.t), 0);
   const amt = sold.reduce((s,r) => s + tAmt(r.t), 0);
   const paid = sold.filter(r => r.t.paid === '入金済').reduce((s,r) => s + tAmt(r.t), 0);
@@ -361,7 +362,7 @@ function viewTickets(){
   <div class="card" id="tsum">
     <div class="evhead"><select class="evsel" onchange="S.eventId=this.value;render()">${opts}</select><span class="caret">▾</span></div>
     <div class="stats">
-      <div class="stat hl"><div class="k">確定枚数</div><div class="v">${qty}枚</div></div>
+      <div class="stat hl"><div class="k">チケット枚数</div><div class="v">${qty}枚</div></div>
       <div class="stat"><div class="k">売上見込み</div><div class="v">${yen(amt)}</div></div>
       <div class="stat"><div class="k">未入金</div><div class="v" style="color:${amt-paid?'var(--accent)':'inherit'}">${yen(amt-paid)}</div></div>
     </div>
@@ -391,7 +392,7 @@ function ticketRowHTML({ c, t }){
           <div class="pills" onclick="event.stopPropagation()">
             <button class="pill ${PILL[t.guide]}" onclick="toggleSt('${esc(c.id)}','guide')">${t.guide}</button>
             <button class="pill ${t.guide === '未案内' ? 's0' : PILL[t.attend]}" onclick="toggleSt('${esc(c.id)}','attend')">${t.attend}</button>
-            <button class="pill ${t.paid === '未入金' && (t.attend !== '決定' || t.guide === '未案内') ? 's0' : PILL[t.paid]}" onclick="toggleSt('${esc(c.id)}','paid')">${t.paid}</button>
+            <button class="pill ${t.paid === '未入金' && !tQty(t) ? 's0' : PILL[t.paid]}" onclick="toggleSt('${esc(c.id)}','paid')">${t.paid}</button>
           </div>
         </div>
       </div>`;
@@ -506,8 +507,6 @@ function tkStep(k, d){
   // 並び順を試合の席種の順にそろえる
   const order = ticketSeatRows().map(x => x.name);
   TK.items = TK.items.filter(i => i.qty > 0).sort((a, b) => order.indexOf(a.seat) - order.indexOf(b.seat));
-  if (tQty(TK) && TK.attend === '確認中' && d > 0) TK.attend = '決定';
-  if (TK.guide === '未案内' && tQty(TK)) TK.guide = '案内済';
   syncSheet();
 }
 function tkNo(k, v){ const s = ticketSeatRows()[k]; const it = TK.items.find(i => i.seat === s.name); if (it) it.no = v; }
@@ -568,7 +567,7 @@ function openCustomer(id){
           <div class="htitle">${esc(e.title)}</div>
           <div class="hmeta">${fmtDate(e.date)}　${t.items.map(i => `${esc(i.seat)}×${i.qty}`).join('・') || 'チケットなし'}${tAmt(t) ? '　' + yen(tAmt(t)) : ''}</div>
           <div style="margin-top:4px"><span class="pill ${PILL[t.attend]}" style="padding:2px 8px;min-width:0">${esc(t.attend)}</span>
-            <span class="pill ${t.paid === '未入金' && t.attend !== '決定' ? 's0' : PILL[t.paid]}" style="padding:2px 8px;min-width:0">${esc(t.paid)}</span></div>
+            <span class="pill ${t.paid === '未入金' && !tQty(t) ? 's0' : PILL[t.paid]}" style="padding:2px 8px;min-width:0">${esc(t.paid)}</span></div>
         </div>
         <button class="hdel" onclick="armSmall(this,()=>removeTicket('${esc(t.id)}',this.closest('.hrow')))">削除</button>
       </div>`).join('')}</div></div>` : ''}
@@ -596,12 +595,12 @@ function removeCustomer(id){
 function viewEvents(){
   if (!S.events.length) return '<div class="empty">まだ試合が登録されていません<br>右下の＋から追加できます</div>';
   return [...S.events].sort((a,b) => b.date.localeCompare(a.date)).map(e => {
-    const ts = S.tickets.filter(t => t.eventId === e.id && t.attend === '決定');
+    const ts = S.tickets.filter(t => t.eventId === e.id && tQty(t) > 0);
     const q = ts.reduce((s,t) => s + tQty(t), 0), a = ts.reduce((s,t) => s + tAmt(t), 0);
     return `<div class="card" onclick="openEvent('${esc(e.id)}')" style="cursor:pointer">
       <div class="muted">${fmtDate(e.date)}${e.venue ? '・' + esc(e.venue) : ''}</div>
       <div class="nm" style="font-size:17px;margin-top:2px">${esc(e.title)}</div>
-      <div class="meta" style="margin-top:8px"><span class="tag">確定 ${q}枚</span><span class="tag">売上 ${yen(a)}</span><span class="tag mine-tag">取り分 ${yen(cut(a, e))}</span></div>
+      <div class="meta" style="margin-top:8px"><span class="tag">チケット ${q}枚</span><span class="tag">売上 ${yen(a)}</span><span class="tag mine-tag">取り分 ${yen(cut(a, e))}</span></div>
       <div class="meta" style="margin-top:6px">${seatsFor(e.id).map(x => `<span>${esc(x.name)} ${yen(x.price)}</span>`).join('<span>／</span>')}</div>
     </div>`;
   }).join('');
@@ -725,7 +724,7 @@ function tate(str){
 const fmtZip = z => { const d = String(z || '').replace(/[^\d]/g, ''); return d.length === 7 ? d.slice(0,3) + '-' + d.slice(3) : d; };
 let PR = { sel: new Set() };
 function printTargets(){
-  return ticketRows().filter(r => r.t.attend === '決定');
+  return ticketRows().filter(r => tQty(r.t) > 0);
 }
 function openPrint(){
   const rows = printTargets();
@@ -738,7 +737,7 @@ function renderPrintSheet(){
   const first = rows.find(r => PR.sel.has(r.c.id));
   openSheet(`
     <h2>封筒の宛名を印刷</h2>
-    <div class="muted">長形3号（12×23.5cm）の封筒に縦書きで印刷します。参加が「決定」の人が対象です。</div>
+    <div class="muted">長形3号（12×23.5cm）の封筒に縦書きで印刷します。チケットを入力した人が対象です。</div>
     ${first ? `<div class="envprev"><div class="envscale">${envelopeHTML(first.c)}</div></div>` : ''}
     <div class="sec"><label>印刷する人（${PR.sel.size}人）</label>
       <div class="list" style="margin-top:0">${rows.length ? rows.map(({c,t}) => `
@@ -746,7 +745,7 @@ function renderPrintSheet(){
           <input type="checkbox" ${PR.sel.has(c.id)?'checked':''} onchange="this.checked?PR.sel.add('${esc(c.id)}'):PR.sel.delete('${esc(c.id)}');syncPrint()" style="width:20px;height:20px">
           <div class="row-main"><div class="nm" style="font-size:14px">${esc(c.name)}</div>
             <div class="meta">${t.delivery ? `<span>${esc(t.delivery)}</span>` : ''}${c.addr1 ? `<span>${esc(c.addr1)}</span>` : '<span style="color:var(--accent)">住所なし</span>'}</div></div>
-        </label>`).join('') : '<div class="empty">参加が「決定」の人がいません</div>'}</div>
+        </label>`).join('') : '<div class="empty">チケットを入力した人がいません</div>'}</div>
     </div>
     <div class="actions">
       <button class="btn" onclick="doPrint()" ${PR.sel.size ? '' : 'disabled'}>印刷する（${PR.sel.size}枚）</button>
