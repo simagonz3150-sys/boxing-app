@@ -77,7 +77,11 @@
   .pills{display:flex;gap:8px;margin-top:6px;padding:4px 0}
   .pills .pill{min-width:76px;min-height:40px;padding:8px 12px;font-size:13px}
   button{touch-action:manipulation;-webkit-user-select:none;user-select:none}
-  .pill{transition:transform .08s}
+  .pill,.btn,.opt,.chip,.fab,.hdel,nav button,.stepper button{transition:transform .08s,filter .08s}
+  .btn:active,.opt:active,.chip:active,.hdel:active,.stepper button:active{transform:scale(.96);filter:brightness(.92)}
+  .fab:active{transform:scale(.9)}
+  nav button:active{transform:scale(.92)}
+  .row:active{background:#f3f1ec}
   .pill:active{transform:scale(.92);filter:brightness(.92)}
   .seg{display:flex;gap:6px}.seg .opt{flex:1}
   .tkrow{border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
@@ -318,6 +322,7 @@ function normTicket(t){
     attend = st === '決定' || st === '入金済' ? '決定' : st === '見送り' ? '見送り' : '確認中';
     paid = st === '入金済' ? '入金済' : '未入金';
   }
+  if (guide === '未案内') { attend = '確認中'; paid = '未入金'; }
   return { ...t, guide, attend: attend || '確認中', paid: paid || '未入金', delivery: t.delivery || '', items };
 }
 /* 画面用 → シートの行（スプレッドシートでも読みやすいように、合計や座席番号もまとめて書く） */
@@ -385,8 +390,8 @@ function ticketRowHTML({ c, t }){
             ${t.memo ? `<span>📝</span>` : ''}</div>
           <div class="pills" onclick="event.stopPropagation()">
             <button class="pill ${PILL[t.guide]}" onclick="toggleSt('${esc(c.id)}','guide')">${t.guide}</button>
-            <button class="pill ${PILL[t.attend]}" onclick="toggleSt('${esc(c.id)}','attend')">${t.attend}</button>
-            <button class="pill ${t.paid === '未入金' && t.attend !== '決定' ? 's0' : PILL[t.paid]}" onclick="toggleSt('${esc(c.id)}','paid')">${t.paid}</button>
+            <button class="pill ${t.guide === '未案内' ? 's0' : PILL[t.attend]}" onclick="toggleSt('${esc(c.id)}','attend')">${t.attend}</button>
+            <button class="pill ${t.paid === '未入金' && (t.attend !== '決定' || t.guide === '未案内') ? 's0' : PILL[t.paid]}" onclick="toggleSt('${esc(c.id)}','paid')">${t.paid}</button>
           </div>
         </div>
       </div>`;
@@ -412,6 +417,13 @@ function refreshTicketPartial(cid){
   else renderTicketList();
 }
 function getTicket(cid){ return S.tickets.find(t => t.eventId === S.eventId && t.customerId === cid); }
+/* 状況のルール：未案内にしたら、参加・入金は「押していない」状態（確認中・未入金）に戻す。
+   参加・入金を押したら、案内は自動で「案内済」にする。 */
+function applyStatusRules(t, field){
+  if (field === 'guide' && t.guide === '未案内') { t.attend = '確認中'; t.paid = '未入金'; }
+  if (field !== 'guide' && t.guide === '未案内') t.guide = '案内済';
+  return t;
+}
 function toggleSt(cid, field){
   const cur = getTicket(cid) || blankTicket(cid);
   const list = { guide: GUIDE, attend: ATTEND, paid: PAID }[field];
@@ -420,7 +432,7 @@ function toggleSt(cid, field){
     const ss = seatsFor(S.eventId); const s = ss[1] || ss[0];
     if (s) t.items = [{ seat: s.name, qty: 1, price: s.price, no: '' }];
   }
-  if (field !== 'guide' && t.guide === '未案内') t.guide = '案内済';
+  applyStatusRules(t, field);
   commitTicket(t);
 }
 const ticketQueue = {};
@@ -458,7 +470,7 @@ function renderTicketSheet(){
   const c = S.customers.find(x => x.id === TK.customerId);
   const ev = S.events.find(e => e.id === S.eventId);
   const seg = (field, list) => `<div class="seg">${list.map(v =>
-    `<button class="opt ${TK[field]===v?'on':''}" onclick="TK.${field}='${v}';syncSheet()">${v}</button>`).join('')}</div>`;
+    `<button class="opt ${TK[field]===v?'on':''}" onclick="TK.${field}='${v}';applyStatusRules(TK,'${field}');syncSheet()">${v}</button>`).join('')}</div>`;
   openSheet(`
     <h2>${esc(c.name)}<span class="muted" style="font-weight:400"> ${esc(c.honorific)}</span></h2>
     <div class="muted">${esc(ev.title)}・${esc(c.group||'')}</div>
