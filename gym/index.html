@@ -594,23 +594,43 @@ function roleAssignForm(key, role){
   });
 }
 function rolesForm(){
-  let lists = { common: commonRoles().filter(r=>r!=="リーダー"), bout: boutRoles().slice() };
-  const draw = ()=>{ ["common","bout"].forEach(k=>{ $("#rl_"+k).innerHTML = (k==="common"?`<div class="card row" style="padding:10px 12px"><span class="grow" style="font-weight:700">リーダー</span><span class="sub" style="margin:0">固定</span></div>`:"") + lists[k].map((r,i)=>`<div class="card row" style="padding:10px 12px"><span class="grow" style="font-weight:700">${esc(r)}</span>
+  let lists = { common: commonRoles().filter(r=>r!=="リーダー").map(r=>({orig:r,name:r})), bout: boutRoles().map(r=>({orig:r,name:r})) };
+  const inp = 'style="flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:16px;font-weight:700;background:#fff"';
+  const sync = ()=>{ document.querySelectorAll("[data-rl-name]").forEach(el=>{ const [k,i]=el.dataset.rlName.split(":"); lists[k][i].name = el.value; }); };
+  const draw = ()=>{ ["common","bout"].forEach(k=>{ $("#rl_"+k).innerHTML = (k==="common"?`<div class="card row" style="padding:10px 12px"><span class="grow" style="font-weight:700">リーダー</span><span class="sub" style="margin:0">固定</span></div>`:"") + lists[k].map((r,i)=>`<div class="row" style="flex-wrap:nowrap;gap:6px">
+    <input data-rl-name="${k}:${i}" value="${esc(r.name)}" maxlength="20" ${inp}>
     ${i>0?`<button class="btn sm" data-rl-up="${k}:${i}">↑</button>`:""}<button class="btn sm danger" data-rl-del="${k}:${i}">削除</button></div>`).join(""); }); };
   const addRow = k => `<div class="row" style="margin-top:8px"><input id="rlNew_${k}" maxlength="20" placeholder="新しい役割" style="flex:1;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;background:#fff"><button class="btn" data-rl-add="${k}">追加</button></div>`;
-  openSheet(`<div id="rlWrap"><h3>役割の項目</h3>
+  openSheet(`<div id="rlWrap"><h3>役割の項目</h3><p class="note" style="margin-top:-4px">名前は枠をタップして直せます。名前を変えても、割り当て済みの人はそのまま残ります。</p>
     <div class="group-h" style="margin-top:4px">共通事項（試合全体で1つ）</div><div class="list" id="rl_common" style="gap:8px"></div>${addRow("common")}
     <div class="group-h">各試合ごと</div><div class="list" id="rl_bout" style="gap:8px"></div>${addRow("bout")}
     <div class="err" id="rlErr"></div>
     <div class="row" style="margin-top:12px"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="rlSave">保存</button></div></div>`);
   $("#rlWrap").addEventListener("click", e=>{
     const d=e.target.closest("[data-rl-del]"), u=e.target.closest("[data-rl-up]"), a=e.target.closest("[data-rl-add]");
+    if(d||u||a) sync();
     if(d){ const [k,i]=d.dataset.rlDel.split(":"); lists[k].splice(Number(i),1); draw(); }
     if(u){ const [k,i0]=u.dataset.rlUp.split(":"); const i=Number(i0); [lists[k][i-1],lists[k][i]]=[lists[k][i],lists[k][i-1]]; draw(); }
-    if(a){ const k=a.dataset.rlAdd; const v=$("#rlNew_"+k).value.trim(); if(!v) return;
-      if(v==="リーダー"||lists.common.includes(v)||lists.bout.includes(v)){ $("#rlErr").textContent="同じ項目があります"; return; } lists[k].push(v); $("#rlNew_"+k).value=""; $("#rlErr").textContent=""; draw(); }
+    if(a){ const k=a.dataset.rlAdd; const v=$("#rlNew_"+k).value.trim(); if(!v) return; lists[k].push({orig:null,name:v}); $("#rlNew_"+k).value=""; draw(); }
   });
-  $("#rlSave").addEventListener("click", async ()=>{ try{ await setDoc(doc(db,"support","_config"), {commonRoles: lists.common, boutRoles: lists.bout}); closeSheet(); toast("保存しました"); }catch(e){ $("#rlErr").textContent = leaderErr(e); } });
+  $("#rlSave").addEventListener("click", async ()=>{
+    sync();
+    const all = [...lists.common, ...lists.bout].map(r=>(r.name=r.name.trim(), r.name));
+    if(all.some(n=>!n)){ $("#rlErr").textContent="名前が空の項目があります"; return; }
+    if(new Set([...all,"リーダー"]).size !== all.length+1){ $("#rlErr").textContent="同じ名前の項目があります（「リーダー」も使えません）"; return; }
+    const ren = { common:{}, bout:{} };
+    ["common","bout"].forEach(k=>lists[k].forEach(r=>{ if(r.orig && r.orig!==r.name) ren[k][r.orig]=r.name; }));
+    const b = writeBatch(db);
+    b.set(doc(db,"support","_config"), {commonRoles: lists.common.map(r=>r.name), boutRoles: lists.bout.map(r=>r.name)});
+    if(Object.keys(ren.common).length || Object.keys(ren.bout).length){
+      Object.entries(state.assign||{}).forEach(([evId, a])=>{ let changed=false; const next={};
+        Object.entries(a).forEach(([key, ids])=>{ const i=key.lastIndexOf("|"); const where=key.slice(0,i), role=key.slice(i+1);
+          const map = where==="common" ? ren.common : ren.bout; const nr = map[role];
+          if(nr){ changed=true; next[where+"|"+nr]=ids; } else next[key]=ids; });
+        if(changed) b.set(doc(db,"support","asg_"+evId), {eventId:"_asg", a: next}); });
+    }
+    try{ await b.commit(); closeSheet(); toast("保存しました"); }catch(e){ $("#rlErr").textContent = leaderErr(e); }
+  });
   draw();
 }
 function leaderErr(e){
