@@ -61,6 +61,11 @@ p.lead{color:var(--muted);font-size:13px;margin:0 0 14px}
 .ev-block{margin-top:10px;font-size:14px}
 .ev-block h4{margin:0 0 4px;font-size:12px;color:var(--muted)}
 .ev-block .pre{white-space:pre-wrap}
+.bouts{display:flex;flex-direction:column;gap:8px;margin-top:2px}
+.bout{border-left:3px solid var(--accent);padding:2px 0 2px 10px}
+.bout-no{font-size:12px;font-weight:700;color:var(--accent)}
+.bout-vs{font-weight:700;font-size:15px;line-height:1.5}
+.bout-info{font-size:12px;color:var(--muted);line-height:1.5}
 .assign{display:grid;grid-template-columns:auto 1fr;gap:4px 12px}
 .assign dt{color:var(--muted);font-size:13px}
 .assign dd{margin:0;font-weight:700}
@@ -145,15 +150,17 @@ const SEED_MEMBERS = [
   {sei:"村田", mei:"碧", kana:"むらた あおい", category:"プロ", weightClass:"スーパーフライ級", birthDate:"2004-05-07", hometown:"長崎県", record:"11戦11勝(7KO)", ranking:"日本スーパーフライ級7位", rankingDetail:"日本ユース・スーパーフライ級王者／OPBFスーパーフライ級12位／WBCスーパーフライ級27位", note:"身長173cm・オーソドックス\n2024年全日本Sフライ級新人王\nプロデビュー：2023年7月30日"},
   {sei:"安井", mei:"新空", kana:"やすい しんくう", category:"プロ", weightClass:"ライトフライ級", birthDate:"2003-06-21", hometown:"愛知県春日井市", record:"4戦2勝1敗1分", ranking:"", rankingDetail:"", note:"身長162cm・オーソドックス\nプロデビュー：2025年6月20日"}
 ];
+const EVENT_SEED_VER = 2;
 const SEED_EVENTS = [
-  {date:"2026-12-13", time:"", title:"SOUL FIGHTING", venue:"愛知・一宮総合体育館",
-   bouts:"宮澤 蓮斗 vs ジュニー・ブガス（比）　WBC世界ユース・ミニマム級タイトルマッチ8回戦\n犬塚 音也 vs 遠藤 龍匠（M.T）　WBC世界ユース・フライ級王座決定8回戦\n島袋 友樹 vs 石井 日向（ARITOMI）　Sバンタム級4回戦\n沖島 由汰 vs 尾崎 勇海（ARITOMI）　61.0kg契約4回戦\n安井 新空 vs 高橋 昭麿（ARITOMI）　49.5kg契約4回戦",
-   assignments:[], memo:"出典：ボクシングモバイル（2026年11月22日確認）"},
-  {date:"2027-01-16", time:"", title:"DYNAMIC GLOVE on U-NEXT Vol.51", venue:"後楽園ホール",
-   bouts:"村田 碧 vs 宮下 聡帥（竜一屋）　日本ユース・スーパーフライ級タイトルマッチ8回戦",
-   assignments:[], memo:"出典：ボクシングモバイル（2026年11月22日確認）"}
+  {date:"2026-12-13", time:"14:00", title:"SOUL FIGHTING", venue:"愛知・一宮総合体育館",
+   bouts:"第1試合｜沖島 由汰 vs 尾崎 勇海（ARITOMI）｜61.0kg契約4回戦\n第2試合｜安井 新空 vs 高橋 昭麿（ARITOMI）｜49.5kg契約4回戦\n第4試合｜島袋 友樹 vs 石井 日向（ARITOMI）｜スーパーバンタム級4回戦\n第6試合｜犬塚 音也 vs 遠藤 龍匠（M.T）｜WBC世界ユース・フライ級王座決定8回戦\n第8試合（メイン）｜宮澤 蓮斗 vs ジュニー・ブガス（フィリピン）｜WBC世界ユース・ミニマム級タイトルマッチ8回戦",
+   assignments:[], memo:"全8試合。試合順はボクシングモバイルの掲載順から（変更の可能性あり）。\n出典：ボクシングモバイル（2026年11月22日確認）"},
+  {date:"2027-01-16", time:"17:45", title:"DYNAMIC GLOVE on U-NEXT Vol.51", venue:"後楽園ホール",
+   bouts:"セミファイナル｜村田 碧 vs 宮下 聡帥（竜一屋）｜日本ユース・スーパーフライ級タイトルマッチ8回戦",
+   assignments:[], memo:"メインは日本スーパーライト級タイトルマッチ（渡来 美響 vs 池田 竜司）。\n出典：ボクシングモバイル（2026年11月22日確認）"}
 ];
-const seedEventsLeft = () => SEED_EVENTS.filter(s => !state.events.some(e => e.date===s.date && (e.title||"")===s.title));
+const findEvent = s => state.events.find(e => e.date===s.date && (e.title||"")===s.title);
+const seedEventsLeft = () => SEED_EVENTS.filter(s => { const e = findEvent(s); return !e || (e.seedVer||0) < EVENT_SEED_VER; });
 const findMember = s => state.members.find(m => m.sei===s.sei && (m.mei||"")===s.mei);
 const seedLeft = () => SEED_MEMBERS.filter(s => { const m = findMember(s); return !m || (m.seedVer||0) < SEED_VER; });
 function ageOf(m){
@@ -301,18 +308,26 @@ function eventCard(e, past){
     <div class="ev-date"><b>${esc(fmtDate(e.date))}</b>${e.time?`<span>${esc(e.time)}〜</span>`:""}</div>
     <div class="ev-title">${esc(e.title||"試合")}</div>
     ${e.venue?`<div class="sub">📍 ${esc(e.venue)}</div>`:""}
-    ${e.bouts?`<div class="ev-block"><h4>出場選手</h4><div class="pre">${esc(e.bouts)}</div></div>`:""}
+    ${e.bouts?`<div class="ev-block"><h4>出場選手</h4>${boutsHtml(e.bouts)}</div>`:""}
     ${assigns.length?`<div class="ev-block"><h4>サポート担当</h4><dl class="assign">${assigns.map(a=>`<dt>${esc(a.role)}</dt><dd>${esc(a.name)}</dd>`).join("")}</dl></div>`:""}
     ${e.memo?`<div class="ev-block"><h4>メモ</h4><div class="pre">${esc(e.memo)}</div></div>`:""}
     ${state.isAdmin?`<div class="admin-actions"><button class="btn sm" data-act="event-edit" data-id="${e.id}">編集</button><button class="btn sm danger" data-act="event-del" data-id="${e.id}">削除</button></div>`:""}
   </div>`;
+}
+function boutsHtml(text){
+  return `<div class="bouts">${text.split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{
+    const p = l.split(/[｜|]/).map(x=>x.trim());
+    if(p.length>=3) return `<div class="bout"><div class="bout-no">${esc(p[0])}</div><div class="bout-vs">${esc(p[1])}</div><div class="bout-info">${esc(p.slice(2).join(" "))}</div></div>`;
+    if(p.length===2) return `<div class="bout"><div class="bout-vs">${esc(p[0])}</div><div class="bout-info">${esc(p[1])}</div></div>`;
+    return `<div class="bout"><div class="bout-vs">${esc(l)}</div></div>`;
+  }).join("")}</div>`;
 }
 function viewEvents(){
   if(!state.ready.events) return `<div class="loading">読み込み中…</div>`;
   const t = todayStr();
   const up = state.events.filter(e=>(e.date||"")>=t), past = state.events.filter(e=>(e.date||"")<t).reverse();
   let h = `<h2 class="sec">試合予定</h2><p class="lead">試合日・会場・サポート担当</p>`;
-  if(state.isAdmin && seedEventsLeft().length) h += `<div class="card" style="margin-bottom:12px"><b>ボクシングモバイルの試合予定を取り込む</b><div class="sub">${seedEventsLeft().map(e=>esc(fmtDate(e.date)+" "+e.title)).join("<br>")}</div><div class="admin-actions"><button class="btn primary sm" data-act="seed-events">取り込む</button></div></div>`;
+  if(state.isAdmin && seedEventsLeft().length) h += `<div class="card" style="margin-bottom:12px"><b>ボクシングモバイルの試合予定を取り込む・更新する</b><div class="sub">${seedEventsLeft().map(e=>esc(fmtDate(e.date)+" "+e.title)).join("<br>")}</div><div class="admin-actions"><button class="btn primary sm" data-act="seed-events">取り込む</button></div></div>`;
   h += up.length ? `<div class="list">${up.map(e=>eventCard(e,false)).join("")}</div>` : `<div class="empty">予定されている試合はありません。</div>`;
   if(past.length) h += `<details class="more"><summary>終わった試合（${past.length}）</summary><div class="list">${past.map(e=>eventCard(e,true)).join("")}</div></details>`;
   return h;
@@ -414,7 +429,7 @@ function eventForm(e){
     <div class="two"><label class="f">日付<input type="date" id="eDate" value="${esc(e.date)}"></label><label class="f">開始時間<input type="time" id="eTime" value="${esc(e.time)}"></label></div>
     <label class="f">興行名<input id="eTitle" maxlength="80" value="${esc(e.title)}" placeholder="例：中日本新人王予選"></label>
     <label class="f">会場<input id="eVenue" maxlength="80" value="${esc(e.venue)}"></label>
-    <label class="f">出場選手 <small>1行に1試合</small><textarea id="eBouts" placeholder="松田 太郎 vs 山田 次郎（バンタム級 4回戦）">${esc(e.bouts)}</textarea></label>
+    <label class="f">出場選手 <small>1行に1試合。「試合順｜対戦｜内容」と ｜ で区切る</small><textarea id="eBouts" style="min-height:140px" placeholder="第1試合｜松田 太郎 vs 山田 次郎（○○）｜バンタム級4回戦">${esc(e.bouts)}</textarea></label>
     <label class="f">サポート担当 <small>「役割：名前」を1行ずつ</small><textarea id="eAssign" placeholder="チーフセコンド：○○&#10;セコンド：○○&#10;カットマン：○○&#10;計量付き添い：○○">${esc(assignText)}</textarea></label>
     <label class="f">メモ <small>集合時間・持ち物など</small><textarea id="eMemo">${esc(e.memo)}</textarea></label>
     <div class="err" id="eErr"></div>
@@ -504,7 +519,9 @@ document.addEventListener("click", async e=>{
       const left = seedEventsLeft(); if(!left.length) break;
       t.disabled = true; t.textContent = "取り込み中…";
       const b = writeBatch(db);
-      left.forEach(s => b.set(doc(collection(db,"events")), s));
+      left.forEach(s => { const e = findEvent(s);
+        if(e) b.update(doc(db,"events",e.id), {...s, assignments: e.assignments?.length ? e.assignments : s.assignments, seedVer:EVENT_SEED_VER});
+        else b.set(doc(collection(db,"events")), {...s, seedVer:EVENT_SEED_VER}); });
       try{ await b.commit(); toast(`${left.length}件の試合を登録しました`); }catch(err){ t.disabled=false; t.textContent="取り込む"; toast(errMsg(err)); }
       break;
     }
