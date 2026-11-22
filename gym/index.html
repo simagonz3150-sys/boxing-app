@@ -61,9 +61,9 @@ p.lead{color:var(--muted);font-size:13px;margin:0 0 14px}
 .sub{font-size:13px;color:var(--muted);margin-top:4px;white-space:pre-wrap}
 .admin-actions{display:flex;gap:6px;margin-top:10px;justify-content:flex-end}
 /* events */
-.ev-date{display:flex;align-items:baseline;gap:8px}
-.ev-date b{font-size:20px;font-weight:900}
-.ev-date span{color:var(--muted);font-size:13px}
+.ev-date{display:flex;align-items:center;gap:8px}
+.ev-date b{font-size:18px;font-weight:900;white-space:nowrap}
+.ev-date span{color:var(--muted);font-size:13px;white-space:nowrap}
 .ev-title{font-weight:900;font-size:16px;margin-top:2px}
 .ev-block{margin-top:10px;font-size:14px}
 .ev-block h4{margin:0 0 4px;font-size:12px;color:var(--muted)}
@@ -344,7 +344,8 @@ function viewMembers(){
 function eventCard(e, past){
   const assigns = (e.assignments||[]).filter(a=>a.role||a.name);
   return `<div class="card ${past?"past":""}">
-    <div class="ev-date"><b>${esc(fmtDate(e.date))}</b>${e.time?`<span>${esc(e.time)}〜</span>`:""}</div>
+    <div class="ev-date"><b>${esc(fmtDate(e.date))}</b><span class="grow"></span><button class="btn sm" style="flex:none" data-act="open-support" data-id="${e.id}">👥 サポート${evSupport(e.id).length?` ${evSupport(e.id).length}人`:""}</button></div>
+    ${e.time?`<div class="sub" style="margin-top:2px">${esc(e.time)} 開始</div>`:""}
     <div class="ev-title">${esc(e.title||"試合")}</div>
     ${e.venue?`<div class="sub">📍 ${esc(e.venue)}</div>`:""}
     ${e.bouts?`<div class="ev-block"><h4>出場選手</h4>${boutsHtml(e.bouts)}</div>`:""}
@@ -365,7 +366,7 @@ function viewEvents(){
   if(!state.ready.events) return `<div class="loading">読み込み中…</div>`;
   const t = todayStr();
   const up = state.events.filter(e=>(e.date||"")>=t), past = state.events.filter(e=>(e.date||"")<t).reverse();
-  let h = `<div class="row" style="margin-top:22px"><h2 class="sec" style="margin:0">試合予定</h2><span class="grow"></span><button class="btn" data-act="open-support">👥 サポートメンバー</button></div><p class="lead" style="margin-top:4px">試合日・会場・サポート担当</p>`;
+  let h = `<h2 class="sec">試合予定</h2><p class="lead">試合日・会場・サポート担当</p>`;
   if(state.isAdmin && seedEventsLeft().length) h += `<div class="card" style="margin-bottom:12px"><b>ボクシングモバイルの試合予定を取り込む・更新する</b><div class="sub">${seedEventsLeft().map(e=>esc(fmtDate(e.date)+" "+e.title)).join("<br>")}</div><div class="admin-actions"><button class="btn primary sm" data-act="seed-events">取り込む</button></div></div>`;
   h += up.length ? `<div class="list">${up.map(e=>eventCard(e,false)).join("")}</div>` : `<div class="empty">予定されている試合はありません。</div>`;
   if(past.length) h += `<details class="more"><summary>終わった試合（${past.length}）</summary><div class="list">${past.map(e=>eventCard(e,true)).join("")}</div></details>`;
@@ -374,15 +375,19 @@ function viewEvents(){
 
 const fmtCode = c => c.length===8 ? c.slice(0,4)+"-"+c.slice(4) : c;
 const canEditSupport = () => state.isAdmin || state.isLeader;
+const evSupport = id => state.support.filter(s=>s.eventId===id);
 function memberOf(sm){ return sm.memberId ? state.members.find(m=>m.id===sm.memberId) : null; }
 function viewSupport(){
   const can = canEditSupport();
+  const ev = state.events.find(e=>e.id===state.supportEventId);
+  const list = evSupport(state.supportEventId);
   let h = `<div style="margin-top:14px"><button class="btn sm" data-act="back-events">← 試合予定</button></div>
     <div class="row" style="margin-top:12px"><h2 class="sec" style="margin:0">サポートメンバー</h2>${state.isLeader?`<span class="tag rank">リーダー</span>`:""}</div>
-    <p class="lead" style="margin-top:4px">${state.support.length}人${can?"・役割をタップすると付け外しできます":""}</p>`;
+    ${ev?`<div class="card" style="margin-top:8px;padding:10px 14px"><div style="font-weight:900">${esc(fmtDate(ev.date))}${ev.time?` ${esc(ev.time)}〜`:""}</div><div class="sub" style="margin-top:2px">${esc(ev.title||"試合")}${ev.venue?`・${esc(ev.venue)}`:""}</div></div>`:""}
+    <p class="lead" style="margin-top:8px">${list.length}人${can?"・役割をタップすると付け外しできます":""}</p>`;
   if(!state.ready.support) return h + `<div class="loading">読み込み中…</div>`;
   const roles = supportRoles();
-  h += state.support.length ? `<div class="list">${state.support.map(sm=>{ const m = memberOf(sm) || {sei:sm.name||"?"}; const mine = sm.roles||[];
+  h += list.length ? `<div class="list">${list.map(sm=>{ const m = memberOf(sm) || {sei:sm.name||"?"}; const mine = sm.roles||[];
       const shownRoles = can ? roles : roles.filter(r=>mine.includes(r)).concat(mine.filter(r=>!roles.includes(r)));
       return `<div class="card"><div class="member">${avatar(m)}<div class="grow">
         <div class="name">${esc(m.mei!==undefined?`${m.sei} ${m.mei||""}`:sm.name)}</div>
@@ -408,7 +413,7 @@ function viewSupport(){
   return h;
 }
 function supportPicker(){
-  const taken = new Set(state.support.map(s=>s.memberId).filter(Boolean));
+  const taken = new Set(evSupport(state.supportEventId).map(s=>s.memberId).filter(Boolean));
   const list = state.members.filter(m=>!taken.has(m.id));
   let filter = "すべて";
   const draw = ()=>{
@@ -430,7 +435,7 @@ function supportPicker(){
   $("#pkGo").addEventListener("click", async ()=>{
     if(!picked.size){ $("#pkErr").textContent="追加する人を選んでください"; return; }
     const b = writeBatch(db);
-    [...picked].forEach(id=>{ const m=state.members.find(x=>x.id===id); b.set(doc(collection(db,"support")), {memberId:id, name:`${m.sei} ${m.mei||""}`.trim(), roles:[]}); });
+    [...picked].forEach(id=>{ const m=state.members.find(x=>x.id===id); b.set(doc(collection(db,"support")), {eventId:state.supportEventId, memberId:id, name:`${m.sei} ${m.mei||""}`.trim(), roles:[]}); });
     try{ await b.commit(); closeSheet(); toast(`${picked.size}人を追加しました`); }catch(e){ $("#pkErr").textContent = leaderErr(e); }
   });
   draw();
@@ -667,7 +672,7 @@ document.addEventListener("click", async e=>{
   const find = (arr)=>arr.find(x=>x.id===id);
   switch(act){
     case "close": closeSheet(); break;
-    case "open-support": state.tab="support"; render(); window.scrollTo(0,0); break;
+    case "open-support": state.supportEventId=id; state.tab="support"; render(); window.scrollTo(0,0); break;
     case "back-events": state.tab="events"; render(); window.scrollTo(0,0); break;
     case "support-new": supportPicker(); break;
     case "roles-edit": rolesForm(); break;
