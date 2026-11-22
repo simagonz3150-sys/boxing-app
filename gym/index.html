@@ -116,7 +116,11 @@ p.lead{color:var(--muted);font-size:13px;margin:0 0 14px}
 .assign{display:grid;grid-template-columns:auto 1fr;gap:4px 12px}
 .assign dt{color:var(--muted);font-size:13px}
 .assign dd{margin:0;font-weight:700}
-.past{opacity:.6}
+.past{background:#faf9f6}
+.endtag{margin-left:6px;font-size:10px;background:#8f897e;color:#fff;border-radius:99px;padding:1px 7px;vertical-align:1px}
+.evseg{display:flex;width:100%;margin:4px 0 12px}
+.evseg button{flex:1;padding:9px 6px;font-size:13px}
+.evseg em{font-style:normal;margin-left:5px;font-size:11px;opacity:.7}
 details.more summary{cursor:pointer;color:var(--muted);font-size:13px;margin:16px 2px 8px}
 /* manual */
 .mjump{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
@@ -468,7 +472,7 @@ function viewMembers(){
 function eventCard(e, past){
   const assigns = (e.assignments||[]).filter(a=>a.role||a.name);
   return `<div class="card ${past?"past":""}">
-    <div class="ev-year">${esc((e.date||"").slice(0,4))}年</div>
+    <div class="ev-year">${esc((e.date||"").slice(0,4))}年${past?`<span class="endtag">終了</span>`:""}</div>
     <div class="ev-date"><b>${esc(fmtDate(e.date).replace(/^\d+年/,""))}</b><span class="grow"></span>
       <button class="evbtn" data-act="open-tickets" data-id="${e.id}">🎫 チケット${ticketCount(e)?`<em>${ticketCount(e)}</em>`:""}</button>
       <button class="evbtn" data-act="open-support" data-id="${e.id}">👥 サポート${evSupport(e.id).length?`<em>${evSupport(e.id).length}</em>`:""}</button></div>
@@ -495,8 +499,10 @@ function viewEvents(){
   const up = state.events.filter(e=>(e.date||"")>=t), past = state.events.filter(e=>(e.date||"")<t).reverse();
   let h = `<div class="row" style="margin-top:22px"><h2 class="sec" style="margin:0">試合予定</h2><span class="grow"></span>${state.isAdmin?`<button class="btn sm" data-act="ask-claude">↻ 更新</button>`:""}</div><p class="lead" style="margin-top:4px">試合日・会場・サポート担当</p>`;
   if(state.isAdmin && seedEventsLeft().length) h += `<div class="card" style="margin-bottom:12px"><b>ボクシングモバイルの試合予定を取り込む・更新する</b><div class="sub">${seedEventsLeft().map(e=>esc(fmtDate(e.date)+" "+e.title)).join("<br>")}</div><div class="admin-actions"><button class="btn primary sm" data-act="seed-events">取り込む</button></div></div>`;
-  h += up.length ? `<div class="list">${up.map(e=>eventCard(e,false)).join("")}</div>` : `<div class="empty">予定されている試合はありません。</div>`;
-  if(past.length) h += `<details class="more"><summary>終わった試合（${past.length}）</summary><div class="list">${past.map(e=>eventCard(e,true)).join("")}</div></details>`;
+  const showPast = state.evView==="past";
+  h += `<div class="seg evseg"><button class="${showPast?"":"on"}" data-act="ev-view" data-v="up">これからの試合<em>${up.length}</em></button><button class="${showPast?"on":""}" data-act="ev-view" data-v="past">過去の試合<em>${past.length}</em></button></div>`;
+  if(showPast) h += past.length ? `<p class="note" style="margin:0 0 8px">終わった試合も、チケット購入者・サポートメンバーの記録はそのまま残っています。</p><div class="list">${past.map(e=>eventCard(e,true)).join("")}</div>` : `<div class="empty">過去の試合はまだありません。</div>`;
+  else h += up.length ? `<div class="list">${up.map(e=>eventCard(e,false)).join("")}</div>` : `<div class="empty">予定されている試合はありません。</div>`;
   return h;
 }
 
@@ -1083,6 +1089,7 @@ document.addEventListener("click", async e=>{
   const find = (arr)=>arr.find(x=>x.id===id);
   switch(act){
     case "close": closeSheet(); break;
+    case "ev-view": state.evView = t.dataset.v; render(); break;
     case "ask-claude": {
       const msg = "ランキング・試合を更新する";
       let copied = false; try{ await navigator.clipboard.writeText(msg); copied = true; }catch(_){}
@@ -1126,7 +1133,7 @@ document.addEventListener("click", async e=>{
     case "member-del": { const m=find(state.members); confirmSheet(`${m.sei} ${m.mei||""}さんを削除しますか？`, "削除", ()=>deleteDoc(doc(db,"members",id)).then(()=>toast("削除しました"))); break; }
     case "event-new": eventForm({}); break;
     case "event-edit": eventForm(find(state.events)); break;
-    case "event-del": confirmSheet("この試合を削除しますか？", "削除", ()=>deleteDoc(doc(db,"events",id)).then(()=>toast("削除しました"))); break;
+    case "event-del": confirmSheet("この試合を削除しますか？チケット購入者などの記録も見られなくなります。", "削除", ()=>deleteDoc(doc(db,"events",id)).then(()=>toast("削除しました"))); break;
     case "manual-new": manualForm(null); break;
     case "mjump": { e.preventDefault(); document.getElementById("msec"+t.dataset.i)?.scrollIntoView({behavior:"smooth"}); break; }
     case "manual-edit": manualForm(i); break;
