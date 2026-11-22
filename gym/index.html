@@ -180,7 +180,8 @@ function ageOf(m){
 }
 
 const state = { tab:"members", members:[], events:[], pending:[], manual:null, ranking:null, isAdmin:false, isLeader:false, support:[], leaderCodes:[], leaderDevices:[], ready:{members:false,events:false,support:false} };
-const SUPPORT_ROLES = ["チーフセコンド","セコンド","カットマン","計量付き添い","運転・送迎","撮影","受付・物販","その他"];
+const DEFAULT_SUPPORT_ROLES = ["タイムキーパー","水バケツ準備","救急箱を運ぶ","水バケツを運ぶ","会場設営、片付け"];
+const supportRoles = () => state.supportRoles || DEFAULT_SUPPORT_ROLES;
 let unsubCodes = null, unsubLeaders = null;
 let unsubPending = null;
 
@@ -240,7 +241,10 @@ onSnapshot(collection(db,"events"), snap=>{
   state.ready.events = true; render();
 }, e=>{ state.ready.events = true; render(); });
 onSnapshot(collection(db,"support"), snap=>{
-  state.support = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.kana||a.name||"").localeCompare(b.kana||b.name||"","ja"));
+  const cfg = snap.docs.find(d=>d.id==="_config");
+  state.supportRoles = cfg && Array.isArray(cfg.data().roles) ? cfg.data().roles : null;
+  state.support = snap.docs.filter(d=>d.id!=="_config").map(d=>({id:d.id,...d.data()})).sort((a,b)=>{
+    const ma=memberOf(a), mb=memberOf(b); return (ma?.kana||a.name||"").localeCompare(mb?.kana||b.name||"","ja"); });
   state.ready.support = true; render();
 }, ()=>{ state.ready.support = true; render(); });
 onSnapshot(doc(db,"meta","manual"), d=>{ state.manual = d.exists() ? (d.data().sections||[]) : null; render(); }, ()=>{});
@@ -370,19 +374,28 @@ function viewEvents(){
 
 const fmtCode = c => c.length===8 ? c.slice(0,4)+"-"+c.slice(4) : c;
 const canEditSupport = () => state.isAdmin || state.isLeader;
+function memberOf(sm){ return sm.memberId ? state.members.find(m=>m.id===sm.memberId) : null; }
 function viewSupport(){
+  const can = canEditSupport();
   let h = `<div style="margin-top:14px"><button class="btn sm" data-act="back-events">← 試合予定</button></div>
     <div class="row" style="margin-top:12px"><h2 class="sec" style="margin:0">サポートメンバー</h2>${state.isLeader?`<span class="tag rank">リーダー</span>`:""}</div>
-    <p class="lead" style="margin-top:4px">${state.support.length}人</p>`;
+    <p class="lead" style="margin-top:4px">${state.support.length}人${can?"・役割をタップすると付け外しできます":""}</p>`;
   if(!state.ready.support) return h + `<div class="loading">読み込み中…</div>`;
-  h += state.support.length ? `<div class="list">${state.support.map(m=>`<div class="card"><div class="row" style="align-items:flex-start"><div class="grow">
-      ${m.kana?`<div class="kana">${esc(m.kana)}</div>`:""}<div class="name" style="font-size:17px;font-weight:900">${esc(m.name)}</div>
-      ${(m.roles||[]).length?`<div class="tags">${m.roles.map(r=>`<span class="tag">${esc(r)}</span>`).join("")}</div>`:""}
-      ${m.memo?`<div class="sub">${esc(m.memo)}</div>`:""}</div></div>
-      ${canEditSupport()?`<div class="admin-actions"><button class="btn sm" data-act="support-edit" data-id="${m.id}">編集</button><button class="btn sm danger" data-act="support-del" data-id="${m.id}">削除</button></div>`:""}</div>`).join("")}</div>`
-    : `<div class="empty">まだサポートメンバーが登録されていません。</div>`;
+  const roles = supportRoles();
+  h += state.support.length ? `<div class="list">${state.support.map(sm=>{ const m = memberOf(sm) || {sei:sm.name||"?"}; const mine = sm.roles||[];
+      const shownRoles = can ? roles : roles.filter(r=>mine.includes(r)).concat(mine.filter(r=>!roles.includes(r)));
+      return `<div class="card"><div class="member">${avatar(m)}<div class="grow">
+        <div class="name">${esc(m.mei!==undefined?`${m.sei} ${m.mei||""}`:sm.name)}</div>
+        ${catOf(m)?`<div class="sub" style="margin-top:0">${esc(gradeLabel(m)||catOf(m))}</div>`:""}
+        <div class="tags" style="margin-top:8px">${shownRoles.length?shownRoles.map(r=> can
+          ? `<button class="chip ${mine.includes(r)?"on":""}" data-act="role-toggle" data-id="${sm.id}" data-role="${esc(r)}">${esc(r)}</button>`
+          : `<span class="tag rank">${esc(r)}</span>`).join(""):`<span class="sub" style="margin:0">役割なし</span>`}</div>
+      </div></div>
+      ${can?`<div class="admin-actions"><button class="btn sm danger" data-act="support-del" data-id="${sm.id}">外す</button></div>`:""}</div>`; }).join("")}</div>`
+    : `<div class="empty">まだサポートメンバーがいません。${can?"<br>右下の「＋ メンバーを追加」から所属者を選んでください。":""}</div>`;
+  if(can) h += `<div style="margin-top:12px"><button class="btn" data-act="roles-edit">役割の項目を編集</button></div>`;
   if(state.isAdmin){
-    h += `<h3 style="margin:26px 0 4px;font-size:16px;font-weight:900">リーダーID</h3><p class="note" style="margin-top:0">IDを知っている人は、そのスマホでIDを入れるとリーダーになり、サポートメンバーの追加・編集・削除ができます。IDを削除すると、その人はすぐに操作できなくなります。</p>`;
+    h += `<h3 style="margin:26px 0 4px;font-size:16px;font-weight:900">リーダーID</h3><p class="note" style="margin-top:0">IDを知っている人は、そのスマホでIDを入れるとリーダーになり、サポートメンバーの追加・役割の割り当て・外すことができます。IDを削除すると、その人はすぐに操作できなくなります。</p>`;
     h += state.leaderCodes.length ? `<div class="list">${state.leaderCodes.map(c=>{ const n = state.leaderDevices.filter(d=>d.code===c.id).length;
       return `<div class="card"><div class="row"><div class="grow"><div style="font-size:20px;font-weight:900;letter-spacing:.08em;font-family:ui-monospace,Menlo,monospace">${esc(fmtCode(c.id))}</div><div class="sub">${esc(c.label||"")}${c.label?"・":""}使用中の端末 ${n}台</div></div>
         <button class="btn sm danger" data-act="code-del" data-id="${esc(c.id)}">削除</button></div></div>`; }).join("")}</div>` : `<div class="empty">まだIDはありません。</div>`;
@@ -394,24 +407,47 @@ function viewSupport(){
   }
   return h;
 }
-function supportForm(m){
-  const isNew = !m.id; const roles = m.roles||[];
-  openSheet(`<h3>${isNew?"サポートメンバーを追加":"サポートメンバーを編集"}</h3>
-    <label class="f">名前<input id="sName" maxlength="30" value="${esc(m.name)}"></label>
-    <label class="f">ふりがな <small>任意</small><input id="sKana" maxlength="40" value="${esc(m.kana)}"></label>
-    <div class="f" style="font-size:13px;font-weight:700;color:#4a4740;margin-bottom:6px">できること <small style="font-weight:400;color:var(--muted)">複数選べます</small></div>
-    <div class="chips" id="sRoles">${SUPPORT_ROLES.map(r=>`<button type="button" class="chip ${roles.includes(r)?"on":""}" data-role="${esc(r)}">${esc(r)}</button>`).join("")}</div>
-    <label class="f">メモ <small>任意</small><textarea id="sMemo" maxlength="200">${esc(m.memo)}</textarea></label>
-    <div class="err" id="sErr"></div>
-    <div class="row"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="sSave">保存</button></div>`);
-  $("#sRoles").addEventListener("click", e=>{ const b=e.target.closest("[data-role]"); if(b) b.classList.toggle("on"); });
-  $("#sSave").addEventListener("click", async ()=>{
-    const data = { name:$("#sName").value.trim(), kana:$("#sKana").value.trim(), memo:$("#sMemo").value.trim(),
-      roles:[...document.querySelectorAll("#sRoles .chip.on")].map(b=>b.dataset.role) };
-    if(!data.name){ $("#sErr").textContent="名前を入れてください"; return; }
-    try{ if(isNew) await addDoc(collection(db,"support"), data); else await setDoc(doc(db,"support",m.id), data); closeSheet(); toast("保存しました"); }
-    catch(e){ $("#sErr").textContent = leaderErr(e); }
+function supportPicker(){
+  const taken = new Set(state.support.map(s=>s.memberId).filter(Boolean));
+  const list = state.members.filter(m=>!taken.has(m.id));
+  let filter = "すべて";
+  const draw = ()=>{
+    const shown = filter==="すべて" ? list : list.filter(m=>catOf(m)===filter);
+    $("#pkList").innerHTML = shown.length ? shown.map(m=>`<label class="card" style="display:flex;gap:12px;align-items:center;padding:10px;cursor:pointer">
+      <input type="checkbox" value="${m.id}" style="width:22px;height:22px;flex:none" ${picked.has(m.id)?"checked":""}>
+      ${avatar(m).replace('class="avatar"','class="avatar" style="width:48px;height:48px;font-size:16px"')}
+      <div class="grow"><div style="font-weight:900">${esc(m.sei)} ${esc(m.mei||"")}</div><div class="sub" style="margin:0">${esc(gradeLabel(m)||catOf(m))}</div></div></label>`).join("")
+      : `<div class="empty">追加できる所属者がいません。</div>`;
+    $("#pkChips").innerHTML = ["すべて",...CATEGORIES].filter(c=>c==="すべて"||list.some(m=>catOf(m)===c)).map(c=>`<button type="button" class="chip ${c===filter?"on":""}" data-pk="${esc(c)}">${esc(c)}</button>`).join("");
+    $("#pkGo").textContent = picked.size ? `${picked.size}人を追加` : "追加";
+  };
+  const picked = new Set();
+  openSheet(`<h3>所属者から選ぶ</h3><div class="chips" id="pkChips"></div><div class="list" id="pkList" style="gap:8px"></div>
+    <div class="err" id="pkErr"></div>
+    <div class="row" style="margin-top:12px;position:sticky;bottom:0;background:var(--bg);padding-top:8px"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="pkGo">追加</button></div>`);
+  $("#pkChips").addEventListener("click", e=>{ const b=e.target.closest("[data-pk]"); if(b){ filter=b.dataset.pk; draw(); } });
+  $("#pkList").addEventListener("change", e=>{ if(e.target.type==="checkbox"){ e.target.checked?picked.add(e.target.value):picked.delete(e.target.value); $("#pkGo").textContent = picked.size?`${picked.size}人を追加`:"追加"; } });
+  $("#pkGo").addEventListener("click", async ()=>{
+    if(!picked.size){ $("#pkErr").textContent="追加する人を選んでください"; return; }
+    const b = writeBatch(db);
+    [...picked].forEach(id=>{ const m=state.members.find(x=>x.id===id); b.set(doc(collection(db,"support")), {memberId:id, name:`${m.sei} ${m.mei||""}`.trim(), roles:[]}); });
+    try{ await b.commit(); closeSheet(); toast(`${picked.size}人を追加しました`); }catch(e){ $("#pkErr").textContent = leaderErr(e); }
   });
+  draw();
+}
+function rolesForm(){
+  let roles = supportRoles().slice();
+  const draw = ()=>{ $("#rlList").innerHTML = roles.map((r,i)=>`<div class="card row" style="padding:10px 12px"><span class="grow" style="font-weight:700">${esc(r)}</span>
+    ${i>0?`<button class="btn sm" data-rl-up="${i}">↑</button>`:""}<button class="btn sm danger" data-rl-del="${i}">削除</button></div>`).join("") || `<div class="empty">項目がありません</div>`; };
+  openSheet(`<h3>役割の項目</h3><div class="list" id="rlList" style="gap:8px"></div>
+    <div class="row" style="margin-top:12px"><input id="rlNew" maxlength="20" placeholder="新しい役割（例：セコンド）" style="flex:1;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;background:#fff"><button class="btn" id="rlAdd">追加</button></div>
+    <div class="err" id="rlErr"></div>
+    <div class="row" style="margin-top:12px"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="rlSave">保存</button></div>`);
+  $("#rlList").addEventListener("click", e=>{ const d=e.target.closest("[data-rl-del]"), u=e.target.closest("[data-rl-up]");
+    if(d){ roles.splice(Number(d.dataset.rlDel),1); draw(); } if(u){ const i=Number(u.dataset.rlUp); [roles[i-1],roles[i]]=[roles[i],roles[i-1]]; draw(); } });
+  $("#rlAdd").addEventListener("click", ()=>{ const v=$("#rlNew").value.trim(); if(!v) return; if(roles.includes(v)){ $("#rlErr").textContent="同じ項目があります"; return; } roles.push(v); $("#rlNew").value=""; $("#rlErr").textContent=""; draw(); });
+  $("#rlSave").addEventListener("click", async ()=>{ try{ await setDoc(doc(db,"support","_config"), {roles}); closeSheet(); toast("保存しました"); }catch(e){ $("#rlErr").textContent = leaderErr(e); } });
+  draw();
 }
 function leaderErr(e){
   if(state.isLeader && (e?.code||"").includes("permission")) return "このリーダーIDは使えなくなっています。管理者に確認してください。";
@@ -633,9 +669,13 @@ document.addEventListener("click", async e=>{
     case "close": closeSheet(); break;
     case "open-support": state.tab="support"; render(); window.scrollTo(0,0); break;
     case "back-events": state.tab="events"; render(); window.scrollTo(0,0); break;
-    case "support-new": supportForm({}); break;
-    case "support-edit": supportForm(find(state.support)); break;
-    case "support-del": { const m=find(state.support); confirmSheet(`${m.name}さんを削除しますか？`, "削除", ()=>deleteDoc(doc(db,"support",id)).then(()=>toast("削除しました")).catch(e=>{ throw e; })); break; }
+    case "support-new": supportPicker(); break;
+    case "roles-edit": rolesForm(); break;
+    case "role-toggle": { const sm=find(state.support); if(!sm) break; const r=t.dataset.role; const cur=sm.roles||[];
+      const next = cur.includes(r) ? cur.filter(x=>x!==r) : [...cur, r];
+      sm.roles = next; render();
+      updateDoc(doc(db,"support",id), {roles: next}).catch(err=>{ sm.roles = cur; render(); toast(leaderErr(err)); }); break; }
+    case "support-del": { const sm=find(state.support); const m=memberOf(sm); confirmSheet(`${m?m.sei+" "+(m.mei||""):sm.name}さんをサポートメンバーから外しますか？`, "外す", ()=>deleteDoc(doc(db,"support",id)).then(()=>toast("外しました"))); break; }
     case "code-new": codeForm(); break;
     case "code-del": confirmSheet(`リーダーID ${fmtCode(id)} を削除しますか？このIDを使っている人は操作できなくなります。`, "削除", async ()=>{
       const b = writeBatch(db); b.delete(doc(db,"leaderCodes",id)); state.leaderDevices.filter(d=>d.code===id).forEach(d=>b.delete(doc(db,"leaders",d.id))); await b.commit(); toast("削除しました"); }); break;
