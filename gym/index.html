@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="松田ジム">
+<meta name="theme-color" content="#141414">
+<title>松田ジム</title>
+<style>
+:root{
+  --bg:#f4f2ee; --card:#fff; --ink:#1b1b1b; --muted:#6d6a64; --line:#e3dfd8;
+  --accent:#c8231e; --ok:#1f7a4d; --warn:#b5690c;
+  --shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.05);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button,input,textarea,select{font:inherit;color:inherit}
+.wrap{max-width:720px;margin:0 auto;padding:0 16px}
+main.wrap{padding-bottom:120px}
+header.top{background:#141414;color:#fff;padding:calc(14px + env(safe-area-inset-top)) 0 0;position:sticky;top:0;z-index:5}
+.brand{display:flex;align-items:center;gap:10px}
+.brand h1{font-size:19px;font-weight:900;margin:0;letter-spacing:.02em}
+.brand .badge{font-size:11px;background:var(--accent);padding:2px 8px;border-radius:99px;font-weight:700}
+.brand .grow{flex:1}
+nav.tabs{display:flex;margin-top:10px;overflow-x:auto;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{flex:1;min-width:max-content;background:none;border:0;padding:11px 10px;color:#aaa;font-weight:700;font-size:14px;border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap}
+nav.tabs button.on{color:#fff;border-color:var(--accent)}
+nav.tabs .dot{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:99px;background:var(--accent);color:#fff;font-size:11px;line-height:18px}
+h2.sec{font-size:20px;font-weight:900;margin:22px 0 4px}
+p.lead{color:var(--muted);font-size:13px;margin:0 0 14px}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:9px 14px;font-size:14px;font-weight:700;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.sm{padding:6px 10px;font-size:12px}
+.btn.danger{color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:default}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grow{flex:1}
+.list{display:flex;flex-direction:column;gap:10px}
+.card{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:14px}
+.empty{color:var(--muted);font-size:14px;text-align:center;padding:30px 10px;background:var(--card);border-radius:14px}
+.group-h{font-size:13px;color:var(--muted);font-weight:700;margin:18px 2px 8px}
+/* members */
+.member{display:flex;gap:12px;align-items:center}
+.avatar{flex:none;width:64px;height:64px;border-radius:50%;object-fit:cover;background:#8f897e;display:grid;place-items:center;font-weight:900;color:#fff;font-size:22px}
+.member .name{font-size:17px;font-weight:900}
+.member .kana{font-size:11px;color:var(--muted)}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:#efece6;color:#4a4740}
+.tag.pro{background:#141414;color:#fff}
+.tag.rank{background:#fbe9e8;color:var(--accent)}
+.sub{font-size:13px;color:var(--muted);margin-top:4px;white-space:pre-wrap}
+.admin-actions{display:flex;gap:6px;margin-top:10px;justify-content:flex-end}
+/* events */
+.ev-date{display:flex;align-items:baseline;gap:8px}
+.ev-date b{font-size:20px;font-weight:900}
+.ev-date span{color:var(--muted);font-size:13px}
+.ev-title{font-weight:900;font-size:16px;margin-top:2px}
+.ev-block{margin-top:10px;font-size:14px}
+.ev-block h4{margin:0 0 4px;font-size:12px;color:var(--muted)}
+.ev-block .pre{white-space:pre-wrap}
+.assign{display:grid;grid-template-columns:auto 1fr;gap:4px 12px}
+.assign dt{color:var(--muted);font-size:13px}
+.assign dd{margin:0;font-weight:700}
+.past{opacity:.6}
+details.more summary{cursor:pointer;color:var(--muted);font-size:13px;margin:16px 2px 8px}
+/* manual */
+.manual h3{margin:0 0 6px;font-size:16px;font-weight:900}
+.manual .body{font-size:14px;line-height:1.75;white-space:pre-wrap}
+/* fab */
+.fab{position:fixed;right:16px;bottom:calc(20px + env(safe-area-inset-bottom));z-index:6;box-shadow:0 6px 20px rgba(0,0,0,.2);border-radius:99px;padding:14px 20px;font-size:15px}
+footer{text-align:center;padding:10px 0 30px}
+footer button{background:none;border:0;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer}
+/* sheet */
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20;display:none;align-items:flex-end;justify-content:center}
+.sheet-bg.show{display:flex}
+.sheet{background:var(--bg);width:100%;max-width:720px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(24px + env(safe-area-inset-bottom))}
+.sheet h3{margin:0 0 12px;font-size:18px;font-weight:900}
+label.f{display:block;margin-bottom:12px;font-size:13px;font-weight:700;color:#4a4740}
+label.f small{font-weight:400;color:var(--muted)}
+label.f input,label.f select,label.f textarea{display:block;width:100%;margin-top:4px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;font-size:16px}
+label.f textarea{min-height:90px;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.photo-pick{display:flex;gap:12px;align-items:center;margin-bottom:14px}
+.photo-pick .avatar{width:84px;height:84px}
+.err{color:var(--accent);font-size:13px;margin:6px 0}
+.note{font-size:12px;color:var(--muted);margin:4px 0 12px}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#141414;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:30;display:none;max-width:90%}
+.loading{color:var(--muted);text-align:center;padding:40px 0;font-size:14px}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><h1>松田ジム</h1><span class="badge" id="adminBadge" hidden>管理者</span><span class="grow"></span></div>
+    <nav class="tabs" id="tabs"></nav>
+  </div>
+</header>
+<main class="wrap" id="view"><div class="loading">読み込み中…</div></main>
+<footer><button id="adminBtn">管理者ログイン</button></footer>
+<button class="btn primary fab" id="fab" hidden></button>
+<div class="sheet-bg" id="sheetBg"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, doc, onSnapshot, addDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAOeqVnZsTb9kt5bBiaYlK_De7CgqdGFjY",
+  authDomain: "matsuda-gym.firebaseapp.com",
+  projectId: "matsuda-gym",
+  storageBucket: "matsuda-gym.firebasestorage.app",
+  messagingSenderId: "561193916670",
+  appId: "1:561193916670:web:6adff83321b70b17da2daf"
+};
+const ADMIN_UID = "ESHvt4oC36cTqPdXmgwPRArHW992";
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+const CATEGORIES = ["プロ","アマチュア","練習生","一般会員"];
+const CLASSES = ["ミニマム級","ライトフライ級","フライ級","スーパーフライ級","バンタム級","スーパーバンタム級","フェザー級","スーパーフェザー級","ライト級","スーパーライト級","ウェルター級","スーパーウェルター級","ミドル級","スーパーミドル級","ライトヘビー級","クルーザー級","ヘビー級","未定"];
+const DEFAULT_MANUAL = [
+  {title:"前日まで", body:"・試合時間と会場、集合時間を選手と確認\n・計量の時間と場所を確認\n・バンデージ、テーピングの数を確認\n・ワセリン、氷、アイスバッグを用意"},
+  {title:"計量の日", body:"・選手と一緒に会場へ（体重計で事前チェック）\n・JBCライセンス、健康診断書を持参\n・計量後の水分・食事を準備しておく"},
+  {title:"当日の持ち物", body:"・バンデージ、テーピング、ハサミ\n・ワセリン、止血剤、エンスウェル（アイアン）\n・タオル、水、バケツ、スポンジ\n・マウスピース、ファウルカップ\n・セコンドのライセンス"},
+  {title:"試合中のセコンド", body:"・インターバルは60秒。指示は短く1〜2つだけ\n・チーフ：作戦の指示\n・サブ：水、ワセリン、マウスピース\n・カットマン：出血・腫れの処置"},
+  {title:"試合のあと", body:"・ドクターチェックを必ず受ける\n・顔や拳を冷やす\n・片付けと忘れ物の確認"}
+];
+
+const state = { tab:"members", members:[], events:[], pending:[], manual:null, ranking:null, isAdmin:false, ready:{members:false,events:false} };
+let unsubPending = null;
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const WD = ["日","月","火","水","木","金","土"];
+function fmtDate(d){ if(!d) return ""; const t=new Date(d+"T00:00:00"); if(isNaN(t)) return d; return `${t.getFullYear()}年${t.getMonth()+1}月${t.getDate()}日（${WD[t.getDay()]}）`; }
+function todayStr(){ const t=new Date(); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`; }
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.style.display="block"; clearTimeout(toast._t); toast._t=setTimeout(()=>t.style.display="none",2600); }
+function initial(m){ return esc((m.sei||"?").slice(0,1)); }
+function avatar(m){ return m.photo ? `<img class="avatar" src="${esc(m.photo)}" alt="">` : `<div class="avatar">${initial(m)}</div>`; }
+function errMsg(e){
+  const c = e && e.code || "";
+  if(c.includes("permission")) return "権限がありません。設定ルールを確認してください。";
+  if(c.includes("invalid-credential")||c.includes("wrong-password")||c.includes("user-not-found")) return "メールアドレスかパスワードが違います。";
+  if(c.includes("too-many")) return "試行回数が多すぎます。しばらく待ってください。";
+  if(c.includes("unavailable")||c.includes("network")) return "通信できません。電波を確認してください。";
+  return "エラーが起きました（" + (c||e?.message||"不明") + "）";
+}
+function sortMembers(a,b){
+  const ca=CATEGORIES.indexOf(a.category), cb=CATEGORIES.indexOf(b.category);
+  if(ca!==cb) return (ca<0?99:ca)-(cb<0?99:cb);
+  const wa=CLASSES.indexOf(a.weightClass), wb=CLASSES.indexOf(b.weightClass);
+  if(wa!==wb) return (wa<0?99:wa)-(wb<0?99:wb);
+  return (a.kana||a.sei||"").localeCompare(b.kana||b.sei||"","ja");
+}
+
+/* resize a photo to a small JPEG data URL so it fits in Firestore */
+function shrinkPhoto(file, max=480, quality=0.78){
+  return new Promise((resolve,reject)=>{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = ()=>{
+      const s = Math.min(1, max/Math.max(img.width,img.height));
+      const w = Math.round(img.width*s), h = Math.round(img.height*s);
+      const c = document.createElement("canvas"); c.width=w; c.height=h;
+      c.getContext("2d").drawImage(img,0,0,w,h);
+      URL.revokeObjectURL(url);
+      let q = quality, out = c.toDataURL("image/jpeg", q);
+      while(out.length > 250000 && q > 0.4){ q -= 0.1; out = c.toDataURL("image/jpeg", q); }
+      resolve(out);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error("写真を読み込めませんでした")); };
+    img.src = url;
+  });
+}
+
+/* ---------- data ---------- */
+onSnapshot(collection(db,"members"), snap=>{
+  state.members = snap.docs.map(d=>({id:d.id,...d.data()})).sort(sortMembers);
+  state.ready.members = true; render();
+}, e=>{ state.ready.members = true; state.loadError = errMsg(e); render(); });
+onSnapshot(collection(db,"events"), snap=>{
+  state.events = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.date||"").localeCompare(b.date||"")||(a.time||"").localeCompare(b.time||""));
+  state.ready.events = true; render();
+}, e=>{ state.ready.events = true; render(); });
+onSnapshot(doc(db,"meta","manual"), d=>{ state.manual = d.exists() ? (d.data().sections||[]) : null; render(); }, ()=>{});
+onSnapshot(doc(db,"meta","ranking"), d=>{ state.ranking = d.exists() ? d.data() : null; render(); }, ()=>{});
+
+onAuthStateChanged(auth, user=>{
+  state.isAdmin = !!user && user.uid === ADMIN_UID;
+  if(user && !state.isAdmin){ signOut(auth); toast("このアカウントは管理者ではありません"); }
+  $("#adminBadge").hidden = !state.isAdmin;
+  $("#adminBtn").textContent = state.isAdmin ? "ログアウト" : "管理者ログイン";
+  if(state.isAdmin && !unsubPending){
+    unsubPending = onSnapshot(collection(db,"pending"), snap=>{
+      state.pending = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.submittedAt?.seconds||0)-(b.submittedAt?.seconds||0));
+      render();
+    }, e=>toast(errMsg(e)));
+  }
+  if(!state.isAdmin && unsubPending){ unsubPending(); unsubPending=null; state.pending=[]; if(state.tab==="pending") state.tab="members"; }
+  render();
+});
+
+/* ---------- render ---------- */
+function renderTabs(){
+  const tabs = [["members","選手"],["events","試合予定"],["ranking","ランキング"],["manual","手順書"]];
+  if(state.isAdmin) tabs.push(["pending","申請"]);
+  $("#tabs").innerHTML = tabs.map(([k,l])=>`<button data-tab="${k}" class="${state.tab===k?"on":""}">${l}${k==="pending"&&state.pending.length?`<span class="dot">${state.pending.length}</span>`:""}</button>`).join("");
+}
+function render(){
+  renderTabs();
+  const v = $("#view");
+  const fab = $("#fab");
+  fab.hidden = true;
+  if(state.tab==="members"){
+    v.innerHTML = viewMembers();
+    fab.hidden = false; fab.textContent = state.isAdmin ? "＋ 選手を追加" : "＋ 選手登録"; fab.dataset.act = state.isAdmin ? "member-new" : "register";
+  } else if(state.tab==="events"){
+    v.innerHTML = viewEvents();
+    if(state.isAdmin){ fab.hidden=false; fab.textContent="＋ 試合を追加"; fab.dataset.act="event-new"; }
+  } else if(state.tab==="ranking"){
+    v.innerHTML = viewRanking();
+  } else if(state.tab==="manual"){
+    v.innerHTML = viewManual();
+    if(state.isAdmin){ fab.hidden=false; fab.textContent="＋ 項目を追加"; fab.dataset.act="manual-new"; }
+  } else if(state.tab==="pending"){
+    v.innerHTML = viewPending();
+  }
+}
+
+function memberCard(m){
+  const tags = [];
+  if(m.category) tags.push(`<span class="tag ${m.category==="プロ"?"pro":""}">${esc(m.category)}</span>`);
+  if(m.weightClass) tags.push(`<span class="tag">${esc(m.weightClass)}</span>`);
+  if(m.ranking) tags.push(`<span class="tag rank">${esc(m.ranking)}</span>`);
+  return `<div class="card">
+    <div class="member">${avatar(m)}
+      <div class="grow">
+        <div class="kana">${esc(m.kana)}</div>
+        <div class="name">${esc(m.sei)} ${esc(m.mei)}</div>
+        <div class="tags">${tags.join("")}</div>
+        ${m.record?`<div class="sub">戦績：${esc(m.record)}</div>`:""}
+        ${m.note?`<div class="sub">${esc(m.note)}</div>`:""}
+      </div>
+    </div>
+    ${state.isAdmin?`<div class="admin-actions"><button class="btn sm" data-act="member-edit" data-id="${m.id}">編集</button><button class="btn sm danger" data-act="member-del" data-id="${m.id}">削除</button></div>`:""}
+  </div>`;
+}
+function viewMembers(){
+  if(!state.ready.members) return `<div class="loading">読み込み中…</div>`;
+  let h = `<h2 class="sec">所属選手</h2><p class="lead">${state.members.length}人</p>`;
+  if(state.loadError) h += `<div class="empty">${esc(state.loadError)}</div>`;
+  else if(!state.members.length) h += `<div class="empty">まだ登録がありません。<br>右下の「＋ 選手登録」から登録できます。</div>`;
+  const groups = {};
+  state.members.forEach(m=>{ const k=m.category||"その他"; (groups[k]=groups[k]||[]).push(m); });
+  Object.keys(groups).forEach(k=>{ h += `<div class="group-h">${esc(k)}（${groups[k].length}）</div><div class="list">${groups[k].map(memberCard).join("")}</div>`; });
+  return h;
+}
+
+function eventCard(e, past){
+  const assigns = (e.assignments||[]).filter(a=>a.role||a.name);
+  return `<div class="card ${past?"past":""}">
+    <div class="ev-date"><b>${esc(fmtDate(e.date))}</b>${e.time?`<span>${esc(e.time)}〜</span>`:""}</div>
+    <div class="ev-title">${esc(e.title||"試合")}</div>
+    ${e.venue?`<div class="sub">📍 ${esc(e.venue)}</div>`:""}
+    ${e.bouts?`<div class="ev-block"><h4>出場選手</h4><div class="pre">${esc(e.bouts)}</div></div>`:""}
+    ${assigns.length?`<div class="ev-block"><h4>サポート担当</h4><dl class="assign">${assigns.map(a=>`<dt>${esc(a.role)}</dt><dd>${esc(a.name)}</dd>`).join("")}</dl></div>`:""}
+    ${e.memo?`<div class="ev-block"><h4>メモ</h4><div class="pre">${esc(e.memo)}</div></div>`:""}
+    ${state.isAdmin?`<div class="admin-actions"><button class="btn sm" data-act="event-edit" data-id="${e.id}">編集</button><button class="btn sm danger" data-act="event-del" data-id="${e.id}">削除</button></div>`:""}
+  </div>`;
+}
+function viewEvents(){
+  if(!state.ready.events) return `<div class="loading">読み込み中…</div>`;
+  const t = todayStr();
+  const up = state.events.filter(e=>(e.date||"")>=t), past = state.events.filter(e=>(e.date||"")<t).reverse();
+  let h = `<h2 class="sec">試合予定</h2><p class="lead">試合日・会場・サポート担当</p>`;
+  h += up.length ? `<div class="list">${up.map(e=>eventCard(e,false)).join("")}</div>` : `<div class="empty">予定されている試合はありません。</div>`;
+  if(past.length) h += `<details class="more"><summary>終わった試合（${past.length}）</summary><div class="list">${past.map(e=>eventCard(e,true)).join("")}</div></details>`;
+  return h;
+}
+
+function viewRanking(){
+  const ranked = state.members.filter(m=>m.ranking);
+  const r = state.ranking || {};
+  let h = `<h2 class="sec">ランキング</h2><p class="lead">${r.updated?`最終更新：${esc(fmtDate(r.updated))}`:"最終更新日は未設定です"}</p>`;
+  h += ranked.length ? `<div class="list">${ranked.map(m=>`<div class="card"><div class="member">${avatar(m)}<div class="grow"><div class="name">${esc(m.sei)} ${esc(m.mei)}</div><div class="tags"><span class="tag">${esc(m.weightClass||"")}</span></div><div class="sub" style="color:var(--accent);font-weight:700">${esc(m.ranking)}</div></div></div></div>`).join("")}</div>`
+    : `<div class="empty">ランキング入りしている選手はいません。</div>`;
+  if(r.note) h += `<div class="card" style="margin-top:10px"><div class="sub" style="margin:0">${esc(r.note)}</div></div>`;
+  h += `<div class="row" style="margin-top:14px"><a class="btn sm" href="https://www.jbc.or.jp/" target="_blank" rel="noopener">JBC（日本ランキング）</a><a class="btn sm" href="https://boxmob.jp/" target="_blank" rel="noopener">ボクシングモバイル</a></div>`;
+  if(state.isAdmin) h += `<p class="note" style="margin-top:14px">各選手のランキングは、選手タブの「編集」で書き換えます。</p><button class="btn" data-act="ranking-edit">最終更新日・メモを編集</button>`;
+  return h;
+}
+
+function viewManual(){
+  const secs = state.manual || DEFAULT_MANUAL;
+  let h = `<h2 class="sec">試合サポートの手順書</h2><p class="lead">試合前から試合後までの流れ</p><div class="list manual">`;
+  h += secs.map((s,i)=>`<div class="card"><h3>${esc(s.title)}</h3><div class="body">${esc(s.body)}</div>
+    ${state.isAdmin?`<div class="admin-actions">${i>0?`<button class="btn sm" data-act="manual-up" data-i="${i}">↑</button>`:""}<button class="btn sm" data-act="manual-edit" data-i="${i}">編集</button><button class="btn sm danger" data-act="manual-del" data-i="${i}">削除</button></div>`:""}</div>`).join("");
+  return h + `</div>`;
+}
+
+function viewPending(){
+  let h = `<h2 class="sec">登録の申請</h2><p class="lead">「登録する」を押すと選手一覧に載ります</p>`;
+  if(!state.pending.length) return h + `<div class="empty">新しい申請はありません。</div>`;
+  return h + `<div class="list">${state.pending.map(p=>{
+    const when = p.submittedAt?.toDate ? p.submittedAt.toDate().toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}) : "";
+    return `<div class="card"><div class="member">${avatar(p)}<div class="grow">
+      <div class="kana">${esc(p.kana)}</div><div class="name">${esc(p.sei)} ${esc(p.mei)}</div>
+      <div class="tags">${p.category?`<span class="tag">${esc(p.category)}</span>`:""}${p.weightClass?`<span class="tag">${esc(p.weightClass)}</span>`:""}</div>
+      ${p.note?`<div class="sub">${esc(p.note)}</div>`:""}
+      <div class="sub" style="font-size:11px">${esc(when)} 送信</div></div></div>
+      <div class="admin-actions"><button class="btn sm danger" data-act="pending-reject" data-id="${p.id}">却下</button><button class="btn sm ok" data-act="pending-approve" data-id="${p.id}">登録する</button></div></div>`;
+  }).join("")}</div>`;
+}
+
+/* ---------- sheets ---------- */
+function openSheet(html){ $("#sheet").innerHTML = html; $("#sheetBg").classList.add("show"); }
+function closeSheet(){ $("#sheetBg").classList.remove("show"); $("#sheet").innerHTML=""; }
+$("#sheetBg").addEventListener("click", e=>{ if(e.target.id==="sheetBg") closeSheet(); });
+
+const opt = (list, val) => `<option value="">選んでください</option>` + list.map(x=>`<option ${x===val?"selected":""}>${esc(x)}</option>`).join("");
+
+function memberForm(m, mode){
+  // mode: "register" (public), "new" / "edit" (admin)
+  const admin = mode!=="register";
+  const title = mode==="register" ? "選手登録" : mode==="new" ? "選手を追加" : "選手を編集";
+  openSheet(`<h3>${title}</h3>
+    ${mode==="register"?`<p class="note">送信した内容は、管理者が確認してから掲載されます。送信後は自分では変更できないので、直したいときは管理者に伝えてください。</p>`:""}
+    <div class="photo-pick"><div id="pv">${avatar(m)}</div>
+      <div><label class="btn" style="display:inline-block">顔写真を選ぶ<input type="file" id="fPhoto" accept="image/*" hidden></label>
+      ${admin&&m.photo?`<div><button class="btn sm danger" id="rmPhoto" style="margin-top:6px">写真を外す</button></div>`:""}</div></div>
+    <div class="two"><label class="f">姓<input id="fSei" maxlength="20" value="${esc(m.sei)}"></label><label class="f">名<input id="fMei" maxlength="20" value="${esc(m.mei)}"></label></div>
+    <label class="f">ふりがな<input id="fKana" maxlength="40" value="${esc(m.kana)}" placeholder="まつだ たろう"></label>
+    <div class="two"><label class="f">区分<select id="fCat">${opt(CATEGORIES,m.category)}</select></label><label class="f">階級<select id="fCls">${opt(CLASSES,m.weightClass)}</select></label></div>
+    ${admin?`<label class="f">戦績 <small>例：5勝(3KO)2敗1分</small><input id="fRec" maxlength="60" value="${esc(m.record)}"></label>
+    <label class="f">ランキング <small>例：日本バンタム級 8位</small><input id="fRank" maxlength="60" value="${esc(m.ranking)}"></label>`:""}
+    <label class="f">ひとこと <small>任意</small><textarea id="fNote" maxlength="200">${esc(m.note)}</textarea></label>
+    <div class="err" id="fErr"></div>
+    <div class="row"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="fSave">${mode==="register"?"送信する":"保存"}</button></div>`);
+  let photo = m.photo || "";
+  $("#fPhoto").addEventListener("change", async e=>{
+    const f = e.target.files[0]; if(!f) return;
+    try{ photo = await shrinkPhoto(f); $("#pv").innerHTML = `<img class="avatar" src="${photo}" alt="">`; }catch(err){ $("#fErr").textContent = err.message; }
+  });
+  $("#rmPhoto")?.addEventListener("click", ()=>{ photo=""; $("#pv").innerHTML = avatar({sei:$("#fSei").value}); });
+  $("#fSave").addEventListener("click", async ()=>{
+    const data = { sei:$("#fSei").value.trim(), mei:$("#fMei").value.trim(), kana:$("#fKana").value.trim(),
+      category:$("#fCat").value, weightClass:$("#fCls").value, note:$("#fNote").value.trim() };
+    if(!data.sei){ $("#fErr").textContent="姓を入力してください"; return; }
+    if(mode==="register" && !photo){ $("#fErr").textContent="顔写真を選んでください"; return; }
+    if(photo) data.photo = photo;
+    const btn = $("#fSave"); btn.disabled = true; btn.textContent = "送信中…";
+    try{
+      if(mode==="register"){
+        await addDoc(collection(db,"pending"), {...data, submittedAt: serverTimestamp()});
+        openSheet(`<h3>送信しました</h3><p>管理者が確認したあと、選手一覧に載ります。</p><div class="row"><span class="grow"></span><button class="btn primary" data-act="close">閉じる</button></div>`);
+        return;
+      }
+      data.record = $("#fRec").value.trim(); data.ranking = $("#fRank").value.trim();
+      if(!photo) data.photo = "";
+      if(mode==="new") await addDoc(collection(db,"members"), {...data, createdAt: serverTimestamp()});
+      else await updateDoc(doc(db,"members",m.id), data);
+      closeSheet(); toast("保存しました");
+    }catch(e){ $("#fErr").textContent = errMsg(e); btn.disabled=false; btn.textContent = mode==="register"?"送信する":"保存"; }
+  });
+}
+
+function eventForm(e){
+  const isNew = !e.id;
+  const assignText = (e.assignments||[]).map(a=>`${a.role}：${a.name}`).join("\n");
+  openSheet(`<h3>${isNew?"試合を追加":"試合を編集"}</h3>
+    <div class="two"><label class="f">日付<input type="date" id="eDate" value="${esc(e.date)}"></label><label class="f">開始時間<input type="time" id="eTime" value="${esc(e.time)}"></label></div>
+    <label class="f">興行名<input id="eTitle" maxlength="80" value="${esc(e.title)}" placeholder="例：中日本新人王予選"></label>
+    <label class="f">会場<input id="eVenue" maxlength="80" value="${esc(e.venue)}"></label>
+    <label class="f">出場選手 <small>1行に1試合</small><textarea id="eBouts" placeholder="松田 太郎 vs 山田 次郎（バンタム級 4回戦）">${esc(e.bouts)}</textarea></label>
+    <label class="f">サポート担当 <small>「役割：名前」を1行ずつ</small><textarea id="eAssign" placeholder="チーフセコンド：○○&#10;セコンド：○○&#10;カットマン：○○&#10;計量付き添い：○○">${esc(assignText)}</textarea></label>
+    <label class="f">メモ <small>集合時間・持ち物など</small><textarea id="eMemo">${esc(e.memo)}</textarea></label>
+    <div class="err" id="eErr"></div>
+    <div class="row"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="eSave">保存</button></div>`);
+  $("#eSave").addEventListener("click", async ()=>{
+    const assignments = $("#eAssign").value.split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{
+      const m = l.match(/^(.+?)[：:]\s*(.*)$/); return m ? {role:m[1].trim(), name:m[2].trim()} : {role:"担当", name:l};
+    });
+    const data = { date:$("#eDate").value, time:$("#eTime").value, title:$("#eTitle").value.trim(), venue:$("#eVenue").value.trim(),
+      bouts:$("#eBouts").value.trim(), assignments, memo:$("#eMemo").value.trim() };
+    if(!data.date){ $("#eErr").textContent="日付を入れてください"; return; }
+    try{
+      if(isNew) await addDoc(collection(db,"events"), data); else await setDoc(doc(db,"events",e.id), data);
+      closeSheet(); toast("保存しました");
+    }catch(err){ $("#eErr").textContent = errMsg(err); }
+  });
+}
+
+function manualForm(i){
+  const secs = (state.manual || DEFAULT_MANUAL).slice();
+  const s = i==null ? {title:"",body:""} : secs[i];
+  openSheet(`<h3>${i==null?"項目を追加":"項目を編集"}</h3>
+    <label class="f">見出し<input id="mTitle" maxlength="60" value="${esc(s.title)}"></label>
+    <label class="f">内容<textarea id="mBody" style="min-height:220px">${esc(s.body)}</textarea></label>
+    <div class="err" id="mErr"></div>
+    <div class="row"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="mSave">保存</button></div>`);
+  $("#mSave").addEventListener("click", async ()=>{
+    const item = {title:$("#mTitle").value.trim(), body:$("#mBody").value};
+    if(!item.title){ $("#mErr").textContent="見出しを入れてください"; return; }
+    if(i==null) secs.push(item); else secs[i]=item;
+    try{ await saveManual(secs); closeSheet(); toast("保存しました"); }catch(e){ $("#mErr").textContent=errMsg(e); }
+  });
+}
+const saveManual = secs => setDoc(doc(db,"meta","manual"), {sections:secs});
+
+function rankingForm(){
+  const r = state.ranking || {};
+  openSheet(`<h3>ランキングの更新情報</h3>
+    <label class="f">最終更新日<input type="date" id="rDate" value="${esc(r.updated)}"></label>
+    <label class="f">メモ <small>出典など</small><textarea id="rNote">${esc(r.note)}</textarea></label>
+    <div class="err" id="rErr"></div>
+    <div class="row"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="rSave">保存</button></div>`);
+  $("#rSave").addEventListener("click", async ()=>{
+    try{ await setDoc(doc(db,"meta","ranking"), {updated:$("#rDate").value, note:$("#rNote").value.trim()}); closeSheet(); toast("保存しました"); }
+    catch(e){ $("#rErr").textContent=errMsg(e); }
+  });
+}
+
+function loginForm(){
+  openSheet(`<h3>管理者ログイン</h3>
+    <label class="f">メールアドレス<input type="email" id="lEmail" autocomplete="username"></label>
+    <label class="f">パスワード<input type="password" id="lPass" autocomplete="current-password"></label>
+    <div class="err" id="lErr"></div>
+    <div class="row"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="lGo">ログイン</button></div>`);
+  $("#lGo").addEventListener("click", async ()=>{
+    try{ await signInWithEmailAndPassword(auth, $("#lEmail").value.trim(), $("#lPass").value); closeSheet(); toast("ログインしました"); }
+    catch(e){ $("#lErr").textContent = errMsg(e); }
+  });
+}
+
+function confirmSheet(msg, okLabel, fn){
+  openSheet(`<h3>${esc(msg)}</h3><div class="err" id="cErr"></div><div class="row"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="cOk">${esc(okLabel)}</button></div>`);
+  $("#cOk").addEventListener("click", async ()=>{ try{ await fn(); closeSheet(); }catch(e){ $("#cErr").textContent = errMsg(e); } });
+}
+
+/* ---------- actions ---------- */
+document.addEventListener("click", async e=>{
+  const t = e.target.closest("[data-tab],[data-act]"); if(!t) return;
+  if(t.dataset.tab){ state.tab = t.dataset.tab; render(); window.scrollTo(0,0); return; }
+  const act = t.dataset.act, id = t.dataset.id, i = t.dataset.i!=null ? Number(t.dataset.i) : null;
+  const find = (arr)=>arr.find(x=>x.id===id);
+  switch(act){
+    case "close": closeSheet(); break;
+    case "register": memberForm({}, "register"); break;
+    case "member-new": memberForm({}, "new"); break;
+    case "member-edit": memberForm(find(state.members), "edit"); break;
+    case "member-del": { const m=find(state.members); confirmSheet(`${m.sei} ${m.mei||""}さんを削除しますか？`, "削除", ()=>deleteDoc(doc(db,"members",id)).then(()=>toast("削除しました"))); break; }
+    case "event-new": eventForm({}); break;
+    case "event-edit": eventForm(find(state.events)); break;
+    case "event-del": confirmSheet("この試合を削除しますか？", "削除", ()=>deleteDoc(doc(db,"events",id)).then(()=>toast("削除しました"))); break;
+    case "manual-new": manualForm(null); break;
+    case "manual-edit": manualForm(i); break;
+    case "manual-del": { const secs=(state.manual||DEFAULT_MANUAL).slice(); confirmSheet(`「${secs[i].title}」を削除しますか？`, "削除", ()=>{ secs.splice(i,1); return saveManual(secs); }); break; }
+    case "manual-up": { const secs=(state.manual||DEFAULT_MANUAL).slice(); [secs[i-1],secs[i]]=[secs[i],secs[i-1]]; saveManual(secs).catch(err=>toast(errMsg(err))); break; }
+    case "ranking-edit": rankingForm(); break;
+    case "pending-approve": {
+      const p = find(state.pending); if(!p) break;
+      t.disabled = true;
+      const { id:_, submittedAt, ...data } = p;
+      const b = writeBatch(db);
+      b.set(doc(collection(db,"members")), {...data, record:"", ranking:"", createdAt: serverTimestamp()});
+      b.delete(doc(db,"pending",p.id));
+      try{ await b.commit(); toast(`${p.sei}さんを登録しました`); }catch(err){ t.disabled=false; toast(errMsg(err)); }
+      break;
+    }
+    case "pending-reject": { const p=find(state.pending); confirmSheet(`${p.sei}さんの申請を却下しますか？`, "却下", ()=>deleteDoc(doc(db,"pending",id))); break; }
+  }
+});
+$("#fab").addEventListener("click", e=>{ /* handled by data-act */ });
+$("#adminBtn").addEventListener("click", ()=>{
+  if(state.isAdmin) confirmSheet("ログアウトしますか？", "ログアウト", ()=>signOut(auth));
+  else loginForm();
+});
+render();
+</script>
+</body>
+</html>
