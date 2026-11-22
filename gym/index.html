@@ -72,7 +72,7 @@ p.lead{color:var(--muted);font-size:13px;margin:0 0 14px}
 .ev-block h4{margin:0 0 4px;font-size:12px;color:var(--muted)}
 .ev-block .pre{white-space:pre-wrap}
 .board{padding:6px 12px}
-.chkbox{margin:4px -12px -6px;padding:8px 12px 10px;background:#f7f5f1;border-radius:0 0 14px 14px;border-top:1px solid var(--line)}
+.chkbox{margin:-6px -12px 4px;padding:8px 12px 8px;background:#f7f5f1;border-radius:14px 14px 0 0;border-bottom:1px solid var(--line)}
 .chkh{font-size:12px;font-weight:900;color:var(--muted);margin-bottom:4px}
 .chkh span{background:#e3dfd8;color:#4a4740;border-radius:99px;padding:0 7px;margin-left:4px}
 .chkh span.ok{background:var(--ok);color:#fff}
@@ -546,13 +546,13 @@ function viewSupport(){
         return `<label class="chk ${on?"on":""}"><input type="checkbox" ${on?"checked":""} ${can?"":"disabled"} data-act="check-toggle" data-key="${esc(key+"|"+it)}"><span>${esc(it)}</span></label>`; }).join("")}</div>`; };
     const bouts = boutsOf(ev);
     if(!bouts.length) h += `<div class="empty" style="margin-top:10px">この試合の「出場選手」が未入力です。試合の「編集」で入れると、試合ごとの役割が出ます。</div>`;
-    bouts.forEach(bt=>{ h += `<div class="bsec">${bt.label?`<span>${esc(bt.label)}</span>`:""}${esc(bt.fighter)}</div><div class="card board">${boutRoles().map(r=>row(bt.key+"|"+r, r)).join("")}${checkBlock(bt.key)}</div>`; });
+    bouts.forEach(bt=>{ h += `<div class="bsec">${bt.label?`<span>${esc(bt.label)}</span>`:""}${esc(bt.fighter)}</div><div class="card board">${checkBlock(bt.key)}${boutRoles().map(r=>row(bt.key+"|"+r, r)).join("")}</div>`; });
     const used = new Set(Object.values(asg).flat());
     const none = list.filter(sm=>!used.has(sm.id));
     if(none.length) h += `<div class="bsec" style="color:var(--muted)">まだ役割がない人</div><div class="card board"><div class="brow"><div class="bwho">${none.map(chip).join("")}</div></div></div>`;
     if(can) h += `<details class="more"><summary>メンバー一覧・外す（${list.length}人）</summary><div class="card" style="padding:8px 12px">${list.map(sm=>`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="grow">${chip(sm)}</span><button class="btn sm danger" data-act="support-del" data-id="${sm.id}">外す</button></div>`).join("")}</div></details>`;
   }
-  if(can) h += `<div class="row" style="margin-top:12px"><button class="btn" data-act="roles-edit">役割の項目を編集</button><button class="btn" data-act="checks-edit">確認項目を編集</button></div>`;
+  if(can) h += `<div class="row" style="margin-top:12px"><button class="btn" data-act="checks-edit">確認項目を編集</button><button class="btn" data-act="roles-edit">役割の項目を編集</button></div>`;
   if(state.isAdmin){
     h += `<h3 style="margin:26px 0 4px;font-size:16px;font-weight:900">リーダーID</h3><p class="note" style="margin-top:0">IDを知っている人は、そのスマホでIDを入れるとリーダーになり、サポートメンバーの追加・役割の割り当て・外すことができます。IDを削除すると、その人はすぐに操作できなくなります。</p>`;
     h += state.leaderCodes.length ? `<div class="list">${state.leaderCodes.map(c=>{ const n = state.leaderDevices.filter(d=>d.code===c.id).length;
