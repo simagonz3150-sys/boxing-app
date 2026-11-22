@@ -107,8 +107,28 @@ p.lead{color:var(--muted);font-size:13px;margin:0 0 14px}
 .past{opacity:.6}
 details.more summary{cursor:pointer;color:var(--muted);font-size:13px;margin:16px 2px 8px}
 /* manual */
-.manual h3{margin:0 0 6px;font-size:16px;font-weight:900}
-.manual .body{font-size:14px;line-height:1.75;white-space:pre-wrap}
+.mjump{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.mjump a{font-size:12px;font-weight:700;background:#fff;border:1px solid var(--line);border-radius:99px;padding:5px 10px;color:inherit;text-decoration:none}
+.mjump a b{color:var(--accent);margin-right:4px}
+.manual .card{scroll-margin-top:110px;padding:0;overflow:hidden}
+.mhead{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#141414;color:#fff}
+.mhead .no{flex:none;width:28px;height:28px;border-radius:50%;background:var(--accent);display:grid;place-items:center;font-weight:900;font-size:14px}
+.mhead h3{margin:0;font-size:16px;font-weight:900;line-height:1.35}
+.mbody{padding:10px 14px 12px;font-size:15px;line-height:1.6}
+.mbody .li{display:flex;gap:8px;padding:7px 0;border-bottom:1px dashed var(--line)}
+.mbody .li:last-child{border-bottom:0}
+.mbody .li::before{content:"";flex:none;width:8px;height:8px;margin:8px 4px 0 2px;background:var(--accent);border-radius:50%}
+.mbody .lbl{display:inline-block;font-size:12px;font-weight:900;background:#efece6;border-radius:6px;padding:2px 8px;margin:8px 0 4px}
+.mbody .hd{font-weight:900;margin:12px 0 4px;padding-left:8px;border-left:4px solid var(--accent)}
+.mbody .note2{font-size:12px;color:var(--muted);background:#f7f5f1;border-radius:6px;padding:4px 8px;margin:4px 0}
+.mbody .tm{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #f0ede7}
+.mbody .tm b{flex:none;font-family:ui-monospace,Menlo,monospace;font-size:14px;background:#141414;color:#fff;border-radius:6px;padding:2px 8px}
+.mbody .p{margin:4px 0}
+.mbody .gap{height:8px}
+.mbody .mimg{margin:6px 0 8px 16px}
+.mbody .mimg img{display:block;width:100%;max-width:420px;border-radius:10px;border:1px solid var(--line);background:#fff}
+.mbody .mimg .ph{height:120px;border-radius:10px;background:#efece6;display:grid;place-items:center;color:var(--muted);font-size:12px}
+.mbody .none{color:var(--muted);font-size:13px}
 /* fab */
 .fab{position:fixed;right:16px;bottom:calc(20px + env(safe-area-inset-bottom));z-index:6;box-shadow:0 6px 20px rgba(0,0,0,.2);border-radius:99px;padding:14px 20px;font-size:15px}
 footer{text-align:center;padding:10px 0 30px}
@@ -738,11 +758,34 @@ function viewRanking(){
   return h;
 }
 
+/* 手順書の本文を、行の書き方に合わせて見やすく表示する（本文そのものは変えない） */
+state.imgs = {};
+function manualImg(id){
+  if(state.imgs[id]===undefined){ state.imgs[id]=null; getDoc(doc(db,"meta","img_"+id)).then(d=>{ state.imgs[id] = d.exists()? d.data().data : ""; render(); }).catch(()=>{ state.imgs[id]=""; }); }
+  const src = state.imgs[id];
+  return `<div class="mimg">${src?`<img src="${esc(src)}" alt="">`:`<div class="ph">${src===""?"写真が見つかりません":"写真を読み込み中…"}</div>`}</div>`;
+}
+function manualBody(text){
+  const lines = (text||"").replace(/\s+$/,"").split("\n");
+  if(!lines.join("").trim()) return `<div class="none">（内容はまだありません）</div>`;
+  return lines.map(l=>{
+    const t = l.trim(); let m;
+    if(!t) return `<div class="gap"></div>`;
+    if((m = t.match(/^\[\[img:([A-Za-z0-9_-]+)\]\]$/))) return manualImg(m[1]);
+    if(/^[・･]/.test(t)) return `<div class="li"><span>${esc(t.replace(/^[・･]\s*/,""))}</span></div>`;
+    if(/^【.+】$/.test(t)) return `<div><span class="lbl">${esc(t)}</span></div>`;
+    if(/^[●■◆]/.test(t)) return `<div class="hd">${esc(t.replace(/^[●■◆]\s*/,""))}</div>`;
+    if(/^※/.test(t)) return `<div class="note2">${esc(t)}</div>`;
+    if((m = t.match(/^(.+?)\s*［([^］]+)］$/))) return `<div class="tm"><span>${esc(m[1])}</span><b>${esc(m[2])}</b></div>`;
+    return `<div class="p">${esc(t)}</div>`;
+  }).join("");
+}
 function viewManual(){
   const secs = state.manual || DEFAULT_MANUAL;
-  let h = `<h2 class="sec">試合サポートの手順書</h2><p class="lead">試合前から試合後までの流れ</p><div class="list manual">`;
-  h += secs.map((s,i)=>`<div class="card"><h3>${esc(s.title)}</h3><div class="body">${esc(s.body)}</div>
-    ${state.isAdmin?`<div class="admin-actions">${i>0?`<button class="btn sm" data-act="manual-up" data-i="${i}">↑</button>`:""}<button class="btn sm" data-act="manual-edit" data-i="${i}">編集</button><button class="btn sm danger" data-act="manual-del" data-i="${i}">削除</button></div>`:""}</div>`).join("");
+  let h = `<h2 class="sec">試合サポートの手順書</h2><p class="lead">試合前から試合後までの流れ</p>`;
+  h += `<div class="mjump">${secs.map((s,i)=>`<a href="#msec${i}" data-act="mjump" data-i="${i}"><b>${i+1}</b>${esc(s.title)}</a>`).join("")}</div><div class="list manual">`;
+  h += secs.map((s,i)=>`<div class="card" id="msec${i}"><div class="mhead"><span class="no">${i+1}</span><h3>${esc(s.title)}</h3></div><div class="mbody">${manualBody(s.body)}</div>
+    ${state.isAdmin?`<div class="admin-actions" style="padding:0 12px 12px;margin-top:0">${i>0?`<button class="btn sm" data-act="manual-up" data-i="${i}">↑</button>`:""}<button class="btn sm" data-act="manual-edit" data-i="${i}">編集</button><button class="btn sm danger" data-act="manual-del" data-i="${i}">削除</button></div>`:""}</div>`).join("");
   return h + `</div>`;
 }
 
@@ -857,9 +900,28 @@ function manualForm(i){
   const s = i==null ? {title:"",body:""} : secs[i];
   openSheet(`<h3>${i==null?"項目を追加":"項目を編集"}</h3>
     <label class="f">見出し<input id="mTitle" maxlength="60" value="${esc(s.title)}"></label>
-    <label class="f">内容<textarea id="mBody" style="min-height:220px">${esc(s.body)}</textarea></label>
+    <label class="f">内容 <small>「・」で始まる行はチェック項目、【 】は見出しラベル、●は小見出し、※は注意書きとして表示されます</small><textarea id="mBody" style="min-height:220px">${esc(s.body)}</textarea></label>
+    <div class="row" style="margin:-4px 0 12px"><label class="btn sm" style="display:inline-block">📷 カーソルの位置に写真を入れる<input type="file" id="mPhoto" accept="image/*" hidden></label><span class="sub" id="mPhotoMsg" style="margin:0"></span></div>
     <div class="err" id="mErr"></div>
     <div class="row"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="mSave">保存</button></div>`);
+  let caret = null; const ta = $("#mBody");
+  ["keyup","click","input","blur"].forEach(ev=>ta.addEventListener(ev, ()=>{ caret = ta.selectionStart; }));
+  $("#mPhoto").addEventListener("change", async ev=>{
+    const f = ev.target.files[0]; if(!f) return;
+    $("#mPhotoMsg").textContent = "写真を保存中…";
+    try{
+      const data = await shrinkPhoto(f, 900, 0.8);
+      const id = Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+      await setDoc(doc(db,"meta","img_"+id), {data});
+      state.imgs[id] = data;
+      const v = ta.value; let pos = caret==null ? v.length : caret;
+      const eol = v.indexOf("\n", pos); pos = eol<0 ? v.length : eol;
+      ta.value = v.slice(0,pos) + "\n[[img:"+id+"]]" + v.slice(pos);
+      caret = pos + id.length + 9;
+      $("#mPhotoMsg").textContent = "写真を入れました（[[img:…]] の行が写真になります）";
+    }catch(err){ $("#mPhotoMsg").textContent = errMsg(err); }
+    ev.target.value = "";
+  });
   $("#mSave").addEventListener("click", async ()=>{
     const item = {title:$("#mTitle").value.trim(), body:$("#mBody").value};
     if(!item.title){ $("#mErr").textContent="見出しを入れてください"; return; }
@@ -940,6 +1002,7 @@ document.addEventListener("click", async e=>{
     case "event-edit": eventForm(find(state.events)); break;
     case "event-del": confirmSheet("この試合を削除しますか？", "削除", ()=>deleteDoc(doc(db,"events",id)).then(()=>toast("削除しました"))); break;
     case "manual-new": manualForm(null); break;
+    case "mjump": { e.preventDefault(); document.getElementById("msec"+t.dataset.i)?.scrollIntoView({behavior:"smooth"}); break; }
     case "manual-edit": manualForm(i); break;
     case "manual-del": { const secs=(state.manual||DEFAULT_MANUAL).slice(); confirmSheet(`「${secs[i].title}」を削除しますか？`, "削除", ()=>{ secs.splice(i,1); return saveManual(secs); }); break; }
     case "manual-up": { const secs=(state.manual||DEFAULT_MANUAL).slice(); [secs[i-1],secs[i]]=[secs[i],secs[i-1]]; saveManual(secs).catch(err=>toast(errMsg(err))); break; }
