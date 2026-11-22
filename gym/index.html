@@ -72,6 +72,13 @@ p.lead{color:var(--muted);font-size:13px;margin:0 0 14px}
 .ev-block h4{margin:0 0 4px;font-size:12px;color:var(--muted)}
 .ev-block .pre{white-space:pre-wrap}
 .board{padding:6px 12px}
+.chkbox{margin:4px -12px -6px;padding:8px 12px 10px;background:#f7f5f1;border-radius:0 0 14px 14px;border-top:1px solid var(--line)}
+.chkh{font-size:12px;font-weight:900;color:var(--muted);margin-bottom:4px}
+.chkh span{background:#e3dfd8;color:#4a4740;border-radius:99px;padding:0 7px;margin-left:4px}
+.chkh span.ok{background:var(--ok);color:#fff}
+.chk{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:14px;cursor:pointer}
+.chk input{width:20px;height:20px;flex:none;accent-color:var(--ok)}
+.chk.on span{color:var(--muted);text-decoration:line-through}
 .bsec{font-size:14px;font-weight:900;margin:16px 2px 6px;display:flex;align-items:center;gap:6px}
 .bsec span{font-size:11px;background:#141414;color:#fff;border-radius:99px;padding:2px 8px}
 .brow{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);min-height:38px}
@@ -203,6 +210,8 @@ const DEFAULT_BOUT_ROLES = ["タイムキーパー","水バケツ準備","救急
 const DEFAULT_COMMON_ROLES = ["会場設営、片付け"];
 const leaderLabel = () => state.leaderLabel || "リーダー";
 const roleLabel = r => r==="リーダー" ? leaderLabel() : r;
+const DEFAULT_CHECK_ITEMS = ["バンデージ・テーピング済み","グローブチェック済み","マウスピース・ファウルカップ確認","ワセリン・止血剤の準備","試合後のドクターチェック"];
+const checkItems = () => state.checkItems || DEFAULT_CHECK_ITEMS;
 const boutRoles = () => state.boutRoles || DEFAULT_BOUT_ROLES;
 const commonRoles = () => ["リーダー", ...(state.commonRoles || DEFAULT_COMMON_ROLES).filter(r=>r!=="リーダー")];
 /* 試合の「出場選手」欄から松田ジムの各試合を取り出す（例：「第8試合（メイン）｜宮澤 蓮斗 vs …｜…」） */
@@ -276,8 +285,10 @@ onSnapshot(collection(db,"support"), snap=>{
   state.boutRoles = Array.isArray(cfg.boutRoles) ? cfg.boutRoles : null;
   state.commonRoles = Array.isArray(cfg.commonRoles) ? cfg.commonRoles : null;
   state.leaderLabel = (typeof cfg.leaderLabel==="string" && cfg.leaderLabel.trim()) ? cfg.leaderLabel.trim() : null;
+  state.checkItems = Array.isArray(cfg.checkItems) ? cfg.checkItems : null;
+  state.checks = {}; snap.docs.filter(d=>d.id.startsWith("chk_")).forEach(d=>{ state.checks[d.id.slice(4)] = d.data().c || {}; });
   state.assign = {}; snap.docs.filter(d=>d.id.startsWith("asg_")).forEach(d=>{ state.assign[d.id.slice(4)] = d.data().a || {}; });
-  state.support = snap.docs.filter(d=>d.id!=="_config" && !d.id.startsWith("asg_")).map(d=>({id:d.id,...d.data()})).sort((a,b)=>{
+  state.support = snap.docs.filter(d=>d.id!=="_config" && !d.id.startsWith("asg_") && !d.id.startsWith("chk_")).map(d=>({id:d.id,...d.data()})).sort((a,b)=>{
     const ma=memberOf(a), mb=memberOf(b); return (ma?.kana||a.name||"").localeCompare(mb?.kana||b.name||"","ja"); });
   state.ready.support = true; render();
 }, ()=>{ state.ready.support = true; render(); });
@@ -528,15 +539,20 @@ function viewSupport(){
     const row = (key, role) => { const ids = asg[key]||[]; const who = list.filter(sm=>ids.includes(sm.id)).sort((x,y)=>leaders.has(y.id)-leaders.has(x.id));
       return `<div class="brow ${key==="common|リーダー"?"lead":""}"><div class="brole">${esc(roleLabel(role))}</div><div class="bwho">${who.length?who.map(chip).join(""):`<span class="bnone">未定</span>`}</div>${can?`<button class="btn sm" data-act="role-assign" data-key="${esc(key)}" data-role="${esc(roleLabel(role))}">選ぶ</button>`:""}</div>`; };
     h += `<div class="bsec">共通事項</div><div class="card board">${commonRoles().map(r=>row("common|"+r, r)).join("")}</div>`;
+    const chk = (state.checks||{})[state.supportEventId] || {};
+    const checkBlock = key => { const items = checkItems(); if(!items.length) return "";
+      const done = items.filter(it=>chk[key+"|"+it]).length;
+      return `<div class="chkbox"><div class="chkh">確認項目 <span class="${done===items.length?"ok":""}">${done}/${items.length}</span></div>${items.map(it=>{ const on=!!chk[key+"|"+it];
+        return `<label class="chk ${on?"on":""}"><input type="checkbox" ${on?"checked":""} ${can?"":"disabled"} data-act="check-toggle" data-key="${esc(key+"|"+it)}"><span>${esc(it)}</span></label>`; }).join("")}</div>`; };
     const bouts = boutsOf(ev);
     if(!bouts.length) h += `<div class="empty" style="margin-top:10px">この試合の「出場選手」が未入力です。試合の「編集」で入れると、試合ごとの役割が出ます。</div>`;
-    bouts.forEach(bt=>{ h += `<div class="bsec">${bt.label?`<span>${esc(bt.label)}</span>`:""}${esc(bt.fighter)}</div><div class="card board">${boutRoles().map(r=>row(bt.key+"|"+r, r)).join("")}</div>`; });
+    bouts.forEach(bt=>{ h += `<div class="bsec">${bt.label?`<span>${esc(bt.label)}</span>`:""}${esc(bt.fighter)}</div><div class="card board">${boutRoles().map(r=>row(bt.key+"|"+r, r)).join("")}${checkBlock(bt.key)}</div>`; });
     const used = new Set(Object.values(asg).flat());
     const none = list.filter(sm=>!used.has(sm.id));
     if(none.length) h += `<div class="bsec" style="color:var(--muted)">まだ役割がない人</div><div class="card board"><div class="brow"><div class="bwho">${none.map(chip).join("")}</div></div></div>`;
     if(can) h += `<details class="more"><summary>メンバー一覧・外す（${list.length}人）</summary><div class="card" style="padding:8px 12px">${list.map(sm=>`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="grow">${chip(sm)}</span><button class="btn sm danger" data-act="support-del" data-id="${sm.id}">外す</button></div>`).join("")}</div></details>`;
   }
-  if(can) h += `<div style="margin-top:12px"><button class="btn" data-act="roles-edit">役割の項目を編集</button></div>`;
+  if(can) h += `<div class="row" style="margin-top:12px"><button class="btn" data-act="roles-edit">役割の項目を編集</button><button class="btn" data-act="checks-edit">確認項目を編集</button></div>`;
   if(state.isAdmin){
     h += `<h3 style="margin:26px 0 4px;font-size:16px;font-weight:900">リーダーID</h3><p class="note" style="margin-top:0">IDを知っている人は、そのスマホでIDを入れるとリーダーになり、サポートメンバーの追加・役割の割り当て・外すことができます。IDを削除すると、その人はすぐに操作できなくなります。</p>`;
     h += state.leaderCodes.length ? `<div class="list">${state.leaderCodes.map(c=>{ const n = state.leaderDevices.filter(d=>d.code===c.id).length;
@@ -627,7 +643,7 @@ function rolesForm(){
     const ren = { common:{}, bout:{} };
     ["common","bout"].forEach(k=>lists[k].forEach(r=>{ if(r.orig && r.orig!==r.name) ren[k][r.orig]=r.name; }));
     const b = writeBatch(db);
-    b.set(doc(db,"support","_config"), {commonRoles: lists.common.map(r=>r.name), boutRoles: lists.bout.map(r=>r.name), leaderLabel: leaderName});
+    b.set(doc(db,"support","_config"), {commonRoles: lists.common.map(r=>r.name), boutRoles: lists.bout.map(r=>r.name), leaderLabel: leaderName}, {merge:true});
     if(Object.keys(ren.common).length || Object.keys(ren.bout).length){
       Object.entries(state.assign||{}).forEach(([evId, a])=>{ let changed=false; const next={};
         Object.entries(a).forEach(([key, ids])=>{ const i=key.lastIndexOf("|"); const where=key.slice(0,i), role=key.slice(i+1);
@@ -636,6 +652,38 @@ function rolesForm(){
         if(changed) b.set(doc(db,"support","asg_"+evId), {eventId:"_asg", a: next}); });
     }
     try{ await b.commit(); closeSheet(); toast("保存しました"); }catch(e){ $("#rlErr").textContent = leaderErr(e); }
+  });
+  draw();
+}
+function checksForm(){
+  let items = checkItems().map(r=>({orig:r,name:r}));
+  const inp = 'style="flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:16px;font-weight:700;background:#fff"';
+  const sync = ()=>{ document.querySelectorAll("[data-ck-name]").forEach(el=>{ items[el.dataset.ckName].name = el.value; }); };
+  const draw = ()=>{ $("#ckList").innerHTML = items.map((r,i)=>`<div class="row" style="flex-wrap:nowrap;gap:6px"><input data-ck-name="${i}" value="${esc(r.name)}" maxlength="30" ${inp}>
+    ${i>0?`<button class="btn sm" data-ck-up="${i}">↑</button>`:""}<button class="btn sm danger" data-ck-del="${i}">削除</button></div>`).join("") || `<div class="empty">項目がありません</div>`; };
+  openSheet(`<div id="ckWrap"><h3>確認項目</h3><p class="note" style="margin-top:-4px">各試合の下に、チェックボックス付きで表示されます。名前は枠をタップして直せます。</p>
+    <div class="list" id="ckList" style="gap:8px"></div>
+    <div class="row" style="margin-top:8px"><input id="ckNew" maxlength="30" placeholder="新しい確認項目" style="flex:1;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;background:#fff"><button class="btn" id="ckAdd">追加</button></div>
+    <div class="err" id="ckErr"></div>
+    <div class="row" style="margin-top:12px"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="ckSave">保存</button></div></div>`);
+  $("#ckWrap").addEventListener("click", e=>{
+    const d=e.target.closest("[data-ck-del]"), u=e.target.closest("[data-ck-up]");
+    if(d||u||e.target.id==="ckAdd") sync();
+    if(d){ items.splice(Number(d.dataset.ckDel),1); draw(); }
+    if(u){ const i=Number(u.dataset.ckUp); [items[i-1],items[i]]=[items[i],items[i-1]]; draw(); }
+    if(e.target.id==="ckAdd"){ const v=$("#ckNew").value.trim(); if(!v) return; items.push({orig:null,name:v}); $("#ckNew").value=""; draw(); }
+  });
+  $("#ckSave").addEventListener("click", async ()=>{
+    sync(); const names = items.map(r=>(r.name=r.name.trim(), r.name));
+    if(names.some(n=>!n)){ $("#ckErr").textContent="名前が空の項目があります"; return; }
+    if(new Set(names).size!==names.length){ $("#ckErr").textContent="同じ名前の項目があります"; return; }
+    const ren = {}; items.forEach(r=>{ if(r.orig && r.orig!==r.name) ren[r.orig]=r.name; });
+    const b = writeBatch(db);
+    b.set(doc(db,"support","_config"), {checkItems: names}, {merge:true});
+    if(Object.keys(ren).length) Object.entries(state.checks||{}).forEach(([evId,c])=>{ let changed=false; const next={};
+      Object.entries(c).forEach(([key,v])=>{ const i=key.lastIndexOf("|"); const nr=ren[key.slice(i+1)]; if(nr){ changed=true; next[key.slice(0,i)+"|"+nr]=v; } else next[key]=v; });
+      if(changed) b.set(doc(db,"support","chk_"+evId), {eventId:"_chk", c:next}); });
+    try{ await b.commit(); closeSheet(); toast("保存しました"); }catch(e){ $("#ckErr").textContent = leaderErr(e); }
   });
   draw();
 }
@@ -865,6 +913,11 @@ document.addEventListener("click", async e=>{
     case "back-events": state.tab="events"; render(); window.scrollTo(0,0); break;
     case "support-new": supportPicker(); break;
     case "roles-edit": rolesForm(); break;
+    case "checks-edit": checksForm(); break;
+    case "check-toggle": { e.preventDefault(); if(!canEditSupport()) break; const evId=state.supportEventId; const key=t.dataset.key;
+      const c = {...((state.checks||{})[evId]||{})}; if(c[key]) delete c[key]; else c[key]=true;
+      const prev = (state.checks||{})[evId]; state.checks = {...(state.checks||{}), [evId]: c}; render();
+      setDoc(doc(db,"support","chk_"+evId), {eventId:"_chk", c}).catch(err=>{ state.checks[evId]=prev; render(); toast(leaderErr(err)); }); break; }
     case "role-assign": roleAssignForm(t.dataset.key, t.dataset.role); break;
     case "role-toggle": { const sm=find(state.support); if(!sm) break; const r=t.dataset.role; const cur=sm.roles||[];
       const next = cur.includes(r) ? cur.filter(x=>x!==r) : [...cur, r];
