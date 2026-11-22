@@ -118,8 +118,8 @@ label.f textarea{min-height:90px;resize:vertical}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, doc, onSnapshot, addDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, doc, onSnapshot, addDoc, setDoc, updateDoc, deleteDoc, getDoc, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signInAnonymously, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAOeqVnZsTb9kt5bBiaYlK_De7CgqdGFjY",
@@ -179,7 +179,9 @@ function ageOf(m){
   return m.age || "";
 }
 
-const state = { tab:"members", members:[], events:[], pending:[], manual:null, ranking:null, isAdmin:false, ready:{members:false,events:false} };
+const state = { tab:"members", members:[], events:[], pending:[], manual:null, ranking:null, isAdmin:false, isLeader:false, support:[], leaderCodes:[], leaderDevices:[], ready:{members:false,events:false,support:false} };
+const SUPPORT_ROLES = ["チーフセコンド","セコンド","カットマン","計量付き添い","運転・送迎","撮影","受付・物販","その他"];
+let unsubCodes = null, unsubLeaders = null;
 let unsubPending = null;
 
 /* ---------- helpers ---------- */
@@ -237,12 +239,25 @@ onSnapshot(collection(db,"events"), snap=>{
   state.events = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.date||"").localeCompare(b.date||"")||(a.time||"").localeCompare(b.time||""));
   state.ready.events = true; render();
 }, e=>{ state.ready.events = true; render(); });
+onSnapshot(collection(db,"support"), snap=>{
+  state.support = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.kana||a.name||"").localeCompare(b.kana||b.name||"","ja"));
+  state.ready.support = true; render();
+}, ()=>{ state.ready.support = true; render(); });
 onSnapshot(doc(db,"meta","manual"), d=>{ state.manual = d.exists() ? (d.data().sections||[]) : null; render(); }, ()=>{});
 onSnapshot(doc(db,"meta","ranking"), d=>{ state.ranking = d.exists() ? d.data() : null; render(); }, ()=>{});
 
-onAuthStateChanged(auth, user=>{
+onAuthStateChanged(auth, async user=>{
   state.isAdmin = !!user && user.uid === ADMIN_UID;
-  if(user && !state.isAdmin){ signOut(auth); toast("このアカウントは管理者ではありません"); }
+  if(user && !state.isAdmin && !user.isAnonymous){ signOut(auth); toast("このアカウントは管理者ではありません"); }
+  state.isLeader = false;
+  if(user && user.isAnonymous){
+    try{ const d = await getDoc(doc(db,"leaders",user.uid)); state.isLeader = d.exists(); }catch(e){ state.isLeader = false; }
+  }
+  if(state.isAdmin && !unsubCodes){
+    unsubCodes = onSnapshot(collection(db,"leaderCodes"), snap=>{ state.leaderCodes = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.createdAt?.seconds||0)-(b.createdAt?.seconds||0)); render(); }, ()=>{});
+    unsubLeaders = onSnapshot(collection(db,"leaders"), snap=>{ state.leaderDevices = snap.docs.map(d=>({id:d.id,...d.data()})); render(); }, ()=>{});
+  }
+  if(!state.isAdmin && unsubCodes){ unsubCodes(); unsubLeaders(); unsubCodes=unsubLeaders=null; state.leaderCodes=[]; state.leaderDevices=[]; }
   $("#adminBadge").hidden = !state.isAdmin;
   $("#adminBtn").textContent = state.isAdmin ? "ログアウト" : "管理者ログイン";
   if(state.isAdmin && !unsubPending){
@@ -259,7 +274,7 @@ onAuthStateChanged(auth, user=>{
 function renderTabs(){
   const tabs = [["members","所属者"],["events","試合予定"],["ranking","ランキング"],["manual","手順書"]];
   if(state.isAdmin) tabs.push(["pending","申請"]);
-  $("#tabs").innerHTML = tabs.map(([k,l])=>`<button data-tab="${k}" class="${state.tab===k?"on":""}">${l}${k==="pending"&&state.pending.length?`<span class="dot">${state.pending.length}</span>`:""}</button>`).join("");
+  $("#tabs").innerHTML = tabs.map(([k,l])=>`<button data-tab="${k}" class="${state.tab===k||(k==="events"&&state.tab==="support")?"on":""}">${l}${k==="pending"&&state.pending.length?`<span class="dot">${state.pending.length}</span>`:""}</button>`).join("");
 }
 function render(){
   renderTabs();
@@ -279,6 +294,9 @@ function render(){
     if(state.isAdmin){ fab.hidden=false; fab.textContent="＋ 項目を追加"; fab.dataset.act="manual-new"; }
   } else if(state.tab==="pending"){
     v.innerHTML = viewPending();
+  } else if(state.tab==="support"){
+    v.innerHTML = viewSupport();
+    if(state.isAdmin||state.isLeader){ fab.hidden=false; fab.textContent="＋ メンバーを追加"; fab.dataset.act="support-new"; }
   }
 }
 
@@ -343,11 +361,93 @@ function viewEvents(){
   if(!state.ready.events) return `<div class="loading">読み込み中…</div>`;
   const t = todayStr();
   const up = state.events.filter(e=>(e.date||"")>=t), past = state.events.filter(e=>(e.date||"")<t).reverse();
-  let h = `<h2 class="sec">試合予定</h2><p class="lead">試合日・会場・サポート担当</p>`;
+  let h = `<div class="row" style="margin-top:22px"><h2 class="sec" style="margin:0">試合予定</h2><span class="grow"></span><button class="btn" data-act="open-support">👥 サポートメンバー</button></div><p class="lead" style="margin-top:4px">試合日・会場・サポート担当</p>`;
   if(state.isAdmin && seedEventsLeft().length) h += `<div class="card" style="margin-bottom:12px"><b>ボクシングモバイルの試合予定を取り込む・更新する</b><div class="sub">${seedEventsLeft().map(e=>esc(fmtDate(e.date)+" "+e.title)).join("<br>")}</div><div class="admin-actions"><button class="btn primary sm" data-act="seed-events">取り込む</button></div></div>`;
   h += up.length ? `<div class="list">${up.map(e=>eventCard(e,false)).join("")}</div>` : `<div class="empty">予定されている試合はありません。</div>`;
   if(past.length) h += `<details class="more"><summary>終わった試合（${past.length}）</summary><div class="list">${past.map(e=>eventCard(e,true)).join("")}</div></details>`;
   return h;
+}
+
+const fmtCode = c => c.length===8 ? c.slice(0,4)+"-"+c.slice(4) : c;
+const canEditSupport = () => state.isAdmin || state.isLeader;
+function viewSupport(){
+  let h = `<div style="margin-top:14px"><button class="btn sm" data-act="back-events">← 試合予定</button></div>
+    <div class="row" style="margin-top:12px"><h2 class="sec" style="margin:0">サポートメンバー</h2>${state.isLeader?`<span class="tag rank">リーダー</span>`:""}</div>
+    <p class="lead" style="margin-top:4px">${state.support.length}人</p>`;
+  if(!state.ready.support) return h + `<div class="loading">読み込み中…</div>`;
+  h += state.support.length ? `<div class="list">${state.support.map(m=>`<div class="card"><div class="row" style="align-items:flex-start"><div class="grow">
+      ${m.kana?`<div class="kana">${esc(m.kana)}</div>`:""}<div class="name" style="font-size:17px;font-weight:900">${esc(m.name)}</div>
+      ${(m.roles||[]).length?`<div class="tags">${m.roles.map(r=>`<span class="tag">${esc(r)}</span>`).join("")}</div>`:""}
+      ${m.memo?`<div class="sub">${esc(m.memo)}</div>`:""}</div></div>
+      ${canEditSupport()?`<div class="admin-actions"><button class="btn sm" data-act="support-edit" data-id="${m.id}">編集</button><button class="btn sm danger" data-act="support-del" data-id="${m.id}">削除</button></div>`:""}</div>`).join("")}</div>`
+    : `<div class="empty">まだサポートメンバーが登録されていません。</div>`;
+  if(state.isAdmin){
+    h += `<h3 style="margin:26px 0 4px;font-size:16px;font-weight:900">リーダーID</h3><p class="note" style="margin-top:0">IDを知っている人は、そのスマホでIDを入れるとリーダーになり、サポートメンバーの追加・編集・削除ができます。IDを削除すると、その人はすぐに操作できなくなります。</p>`;
+    h += state.leaderCodes.length ? `<div class="list">${state.leaderCodes.map(c=>{ const n = state.leaderDevices.filter(d=>d.code===c.id).length;
+      return `<div class="card"><div class="row"><div class="grow"><div style="font-size:20px;font-weight:900;letter-spacing:.08em;font-family:ui-monospace,Menlo,monospace">${esc(fmtCode(c.id))}</div><div class="sub">${esc(c.label||"")}${c.label?"・":""}使用中の端末 ${n}台</div></div>
+        <button class="btn sm danger" data-act="code-del" data-id="${esc(c.id)}">削除</button></div></div>`; }).join("")}</div>` : `<div class="empty">まだIDはありません。</div>`;
+    h += `<div style="margin-top:10px"><button class="btn primary" data-act="code-new">＋ リーダーIDを作る</button></div>`;
+  } else if(state.isLeader){
+    h += `<div style="text-align:center;margin-top:24px"><button class="btn sm" data-act="leader-quit">このスマホのリーダーをやめる</button></div>`;
+  } else {
+    h += `<div style="text-align:center;margin-top:24px"><button class="btn sm" data-act="leader-enter">リーダーIDを入力</button></div>`;
+  }
+  return h;
+}
+function supportForm(m){
+  const isNew = !m.id; const roles = m.roles||[];
+  openSheet(`<h3>${isNew?"サポートメンバーを追加":"サポートメンバーを編集"}</h3>
+    <label class="f">名前<input id="sName" maxlength="30" value="${esc(m.name)}"></label>
+    <label class="f">ふりがな <small>任意</small><input id="sKana" maxlength="40" value="${esc(m.kana)}"></label>
+    <div class="f" style="font-size:13px;font-weight:700;color:#4a4740;margin-bottom:6px">できること <small style="font-weight:400;color:var(--muted)">複数選べます</small></div>
+    <div class="chips" id="sRoles">${SUPPORT_ROLES.map(r=>`<button type="button" class="chip ${roles.includes(r)?"on":""}" data-role="${esc(r)}">${esc(r)}</button>`).join("")}</div>
+    <label class="f">メモ <small>任意</small><textarea id="sMemo" maxlength="200">${esc(m.memo)}</textarea></label>
+    <div class="err" id="sErr"></div>
+    <div class="row"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="sSave">保存</button></div>`);
+  $("#sRoles").addEventListener("click", e=>{ const b=e.target.closest("[data-role]"); if(b) b.classList.toggle("on"); });
+  $("#sSave").addEventListener("click", async ()=>{
+    const data = { name:$("#sName").value.trim(), kana:$("#sKana").value.trim(), memo:$("#sMemo").value.trim(),
+      roles:[...document.querySelectorAll("#sRoles .chip.on")].map(b=>b.dataset.role) };
+    if(!data.name){ $("#sErr").textContent="名前を入れてください"; return; }
+    try{ if(isNew) await addDoc(collection(db,"support"), data); else await setDoc(doc(db,"support",m.id), data); closeSheet(); toast("保存しました"); }
+    catch(e){ $("#sErr").textContent = leaderErr(e); }
+  });
+}
+function leaderErr(e){
+  if(state.isLeader && (e?.code||"").includes("permission")) return "このリーダーIDは使えなくなっています。管理者に確認してください。";
+  return errMsg(e);
+}
+function makeCode(){ const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; const r=new Uint32Array(8); crypto.getRandomValues(r); return [...r].map(x=>A[x%A.length]).join(""); }
+function codeForm(){
+  openSheet(`<h3>リーダーIDを作る</h3>
+    <label class="f">誰に渡すID？ <small>メモ用。例：田中さん</small><input id="cLabel" maxlength="30"></label>
+    <div class="err" id="cErr"></div>
+    <div class="row"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="cGo">作る</button></div>`);
+  $("#cGo").addEventListener("click", async ()=>{
+    const code = makeCode();
+    try{ await setDoc(doc(db,"leaderCodes",code), {label:$("#cLabel").value.trim(), createdAt: serverTimestamp()});
+      openSheet(`<h3>リーダーIDができました</h3><div style="font-size:30px;font-weight:900;letter-spacing:.1em;text-align:center;margin:18px 0;font-family:ui-monospace,Menlo,monospace">${fmtCode(code)}</div>
+        <p class="note">このIDをリーダーに伝えてください。リーダーは「試合予定」→「サポートメンバー」→「リーダーIDを入力」から入れます。</p>
+        <div class="row"><button class="btn" id="cCopy">コピー</button><span class="grow"></span><button class="btn primary" data-act="close">閉じる</button></div>`);
+      $("#cCopy").addEventListener("click", ()=>{ navigator.clipboard?.writeText(fmtCode(code)).then(()=>toast("コピーしました"), ()=>{}); });
+    }catch(e){ $("#cErr").textContent = errMsg(e); }
+  });
+}
+function leaderEnterForm(){
+  openSheet(`<h3>リーダーIDを入力</h3><p class="note">管理者から受け取ったIDを入れてください。このスマホで一度入れれば、次からは入力不要です。</p>
+    <label class="f">リーダーID<input id="lCode" maxlength="12" autocapitalize="characters" autocomplete="off" placeholder="XXXX-XXXX" style="letter-spacing:.1em;font-family:ui-monospace,Menlo,monospace"></label>
+    <div class="err" id="lcErr"></div>
+    <div class="row"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="lcGo">決定</button></div>`);
+  $("#lcGo").addEventListener("click", async ()=>{
+    const code = $("#lCode").value.toUpperCase().replace(/[^A-Z0-9]/g,"");
+    if(code.length!==8){ $("#lcErr").textContent="IDは8文字です"; return; }
+    const btn=$("#lcGo"); btn.disabled=true;
+    try{
+      if(!auth.currentUser) await signInAnonymously(auth);
+      await setDoc(doc(db,"leaders",auth.currentUser.uid), {code, at: serverTimestamp()});
+      state.isLeader = true; closeSheet(); toast("リーダーになりました"); render();
+    }catch(e){ btn.disabled=false; $("#lcErr").textContent = (e?.code||"").includes("permission") ? "IDが違うか、使えなくなっています。" : (e?.code||"").includes("admin-restricted")||(e?.code||"").includes("operation-not-allowed") ? "準備中です。管理者に連絡してください。" : errMsg(e); }
+  });
 }
 
 function viewRanking(){
@@ -531,6 +631,16 @@ document.addEventListener("click", async e=>{
   const find = (arr)=>arr.find(x=>x.id===id);
   switch(act){
     case "close": closeSheet(); break;
+    case "open-support": state.tab="support"; render(); window.scrollTo(0,0); break;
+    case "back-events": state.tab="events"; render(); window.scrollTo(0,0); break;
+    case "support-new": supportForm({}); break;
+    case "support-edit": supportForm(find(state.support)); break;
+    case "support-del": { const m=find(state.support); confirmSheet(`${m.name}さんを削除しますか？`, "削除", ()=>deleteDoc(doc(db,"support",id)).then(()=>toast("削除しました")).catch(e=>{ throw e; })); break; }
+    case "code-new": codeForm(); break;
+    case "code-del": confirmSheet(`リーダーID ${fmtCode(id)} を削除しますか？このIDを使っている人は操作できなくなります。`, "削除", async ()=>{
+      const b = writeBatch(db); b.delete(doc(db,"leaderCodes",id)); state.leaderDevices.filter(d=>d.code===id).forEach(d=>b.delete(doc(db,"leaders",d.id))); await b.commit(); toast("削除しました"); }); break;
+    case "leader-enter": leaderEnterForm(); break;
+    case "leader-quit": confirmSheet("このスマホのリーダーをやめますか？", "リーダーをやめる", async ()=>{ try{ await deleteDoc(doc(db,"leaders",auth.currentUser.uid)); }catch(e){} await signOut(auth); state.isLeader=false; toast("リーダーをやめました"); render(); }); break;
     case "register": memberForm({}, "register"); break;
     case "filter": state.memberFilter = t.dataset.cat; render(); break;
     case "member-new": memberForm({}, "new"); break;
