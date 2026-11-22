@@ -133,6 +133,19 @@ const DEFAULT_MANUAL = [
   {title:"試合のあと", body:"・ドクターチェックを必ず受ける\n・顔や拳を冷やす\n・片付けと忘れ物の確認"}
 ];
 
+/* ボクシングモバイル（松田ジム所属プロ）とJBC 2026年10月度ランキング（10/28発表）から取り込む選手 */
+const SEED_SOURCE = "ボクシングモバイル（2026年11月22日確認）・JBC 2026年10月度ランキング（10月28日発表）";
+const SEED_MEMBERS = [
+  {sei:"犬塚", mei:"音也", kana:"いぬづか おとや", category:"プロ", weightClass:"フライ級", age:24, hometown:"愛知県名古屋市", ranking:"日本スーパーフライ級ランカー", record:"", note:"プロデビュー：2021年12月19日"},
+  {sei:"沖島", mei:"由汰", kana:"おきしま ゆうた", category:"プロ", weightClass:"ライト級", age:23, hometown:"愛知県名古屋市中区", ranking:"", record:"", note:"プロデビュー：2026年7月5日"},
+  {sei:"島袋", mei:"友樹", kana:"しまぶくろ ともき", category:"プロ", weightClass:"スーパーバンタム級", age:27, hometown:"愛知県", ranking:"", record:"", note:"プロデビュー：2021年12月19日"},
+  {sei:"宮澤", mei:"蓮斗", kana:"みやざわ れんと", category:"プロ", weightClass:"ミニマム級", age:23, hometown:"愛知県津島市", ranking:"日本ミニマム級ランカー（WBA 10位）", record:"", note:"元日本ユース・ミニマム級王者／WBC世界ユース・ミニマム級王者\nプロデビュー：2021年7月18日"},
+  {sei:"武藤", mei:"涼太", kana:"むとう りょうた", category:"プロ", weightClass:"スーパーバンタム級", age:21, hometown:"愛知県春日井市", ranking:"WBO-AP フェザー級王者", record:"", note:"プロデビュー：2023年3月26日"},
+  {sei:"村田", mei:"碧", kana:"むらた あおい", category:"プロ", weightClass:"スーパーフライ級", age:22, hometown:"長崎県", ranking:"日本スーパーフライ級ランカー（日本ユース）", record:"", note:"プロデビュー：2023年7月30日"},
+  {sei:"安井", mei:"新空", kana:"やすい しんくう", category:"プロ", weightClass:"ライトフライ級", age:23, hometown:"愛知県春日井市", ranking:"", record:"", note:"プロデビュー：2025年6月20日"}
+];
+const seedLeft = () => SEED_MEMBERS.filter(s => !state.members.some(m => m.sei===s.sei && (m.mei||"")===s.mei));
+
 const state = { tab:"members", members:[], events:[], pending:[], manual:null, ranking:null, isAdmin:false, ready:{members:false,events:false} };
 let unsubPending = null;
 
@@ -246,6 +259,7 @@ function memberCard(m){
         <div class="kana">${esc(m.kana)}</div>
         <div class="name">${esc(m.sei)} ${esc(m.mei)}</div>
         <div class="tags">${tags.join("")}</div>
+        ${(m.age||m.hometown)?`<div class="sub">${[m.age?esc(m.age)+"歳":"", m.hometown?esc(m.hometown)+"出身":""].filter(Boolean).join("・")}</div>`:""}
         ${m.record?`<div class="sub">戦績：${esc(m.record)}</div>`:""}
         ${m.note?`<div class="sub">${esc(m.note)}</div>`:""}
       </div>
@@ -256,6 +270,7 @@ function memberCard(m){
 function viewMembers(){
   if(!state.ready.members) return `<div class="loading">読み込み中…</div>`;
   let h = `<h2 class="sec">所属選手</h2><p class="lead">${state.members.length}人</p>`;
+  if(state.isAdmin && seedLeft().length) h += `<div class="card" style="margin-bottom:12px"><b>ボクシングモバイルの選手を取り込む</b><div class="sub">松田ジム所属のプロ${seedLeft().length}人（${esc(seedLeft().map(s=>s.sei).join("・"))}）を、階級・年齢・出身地・ランキング付きで登録します。すでに登録済みの選手は飛ばします。</div><div class="admin-actions"><button class="btn primary sm" data-act="seed-import">取り込む</button></div></div>`;
   if(state.loadError) h += `<div class="empty">${esc(state.loadError)}</div>`;
   else if(!state.members.length) h += `<div class="empty">まだ登録がありません。<br>右下の「＋ 選手登録」から登録できます。</div>`;
   const groups = {};
@@ -339,7 +354,8 @@ function memberForm(m, mode){
     <div class="two"><label class="f">姓<input id="fSei" maxlength="20" value="${esc(m.sei)}"></label><label class="f">名<input id="fMei" maxlength="20" value="${esc(m.mei)}"></label></div>
     <label class="f">ふりがな<input id="fKana" maxlength="40" value="${esc(m.kana)}" placeholder="まつだ たろう"></label>
     <div class="two"><label class="f">区分<select id="fCat">${opt(CATEGORIES,m.category)}</select></label><label class="f">階級<select id="fCls">${opt(CLASSES,m.weightClass)}</select></label></div>
-    ${admin?`<label class="f">戦績 <small>例：5勝(3KO)2敗1分</small><input id="fRec" maxlength="60" value="${esc(m.record)}"></label>
+    ${admin?`<div class="two"><label class="f">年齢<input id="fAge" type="number" min="0" max="99" inputmode="numeric" value="${esc(m.age)}"></label><label class="f">出身地<input id="fHome" maxlength="40" value="${esc(m.hometown)}"></label></div>
+    <label class="f">戦績 <small>例：5勝(3KO)2敗1分</small><input id="fRec" maxlength="60" value="${esc(m.record)}"></label>
     <label class="f">ランキング <small>例：日本バンタム級 8位</small><input id="fRank" maxlength="60" value="${esc(m.ranking)}"></label>`:""}
     <label class="f">ひとこと <small>任意</small><textarea id="fNote" maxlength="200">${esc(m.note)}</textarea></label>
     <div class="err" id="fErr"></div>
@@ -364,6 +380,7 @@ function memberForm(m, mode){
         return;
       }
       data.record = $("#fRec").value.trim(); data.ranking = $("#fRank").value.trim();
+      data.age = $("#fAge").value ? Number($("#fAge").value) : ""; data.hometown = $("#fHome").value.trim();
       if(!photo) data.photo = "";
       if(mode==="new") await addDoc(collection(db,"members"), {...data, createdAt: serverTimestamp()});
       else await updateDoc(doc(db,"members",m.id), data);
@@ -465,6 +482,15 @@ document.addEventListener("click", async e=>{
     case "manual-del": { const secs=(state.manual||DEFAULT_MANUAL).slice(); confirmSheet(`「${secs[i].title}」を削除しますか？`, "削除", ()=>{ secs.splice(i,1); return saveManual(secs); }); break; }
     case "manual-up": { const secs=(state.manual||DEFAULT_MANUAL).slice(); [secs[i-1],secs[i]]=[secs[i],secs[i-1]]; saveManual(secs).catch(err=>toast(errMsg(err))); break; }
     case "ranking-edit": rankingForm(); break;
+    case "seed-import": {
+      const left = seedLeft(); if(!left.length) break;
+      t.disabled = true; t.textContent = "取り込み中…";
+      const b = writeBatch(db);
+      left.forEach(s => b.set(doc(collection(db,"members")), {...s, photo:"", createdAt: serverTimestamp()}));
+      if(!state.ranking?.updated) b.set(doc(db,"meta","ranking"), {updated:"2026-10-28", note:"JBC 2026年10月度ランキング（10月28日発表）より。日本ランキングの順位番号は確認でき次第、各選手の「編集」で入れてください。"});
+      try{ await b.commit(); toast(`${left.length}人を登録しました`); }catch(err){ t.disabled=false; t.textContent="取り込む"; toast(errMsg(err)); }
+      break;
+    }
     case "pending-approve": {
       const p = find(state.pending); if(!p) break;
       t.disabled = true;
