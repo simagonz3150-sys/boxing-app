@@ -493,7 +493,7 @@ function viewEvents(){
   if(!state.ready.events) return `<div class="loading">読み込み中…</div>`;
   const t = todayStr();
   const up = state.events.filter(e=>(e.date||"")>=t), past = state.events.filter(e=>(e.date||"")<t).reverse();
-  let h = `<h2 class="sec">試合予定</h2><p class="lead">試合日・会場・サポート担当</p>`;
+  let h = `<div class="row" style="margin-top:22px"><h2 class="sec" style="margin:0">試合予定</h2><span class="grow"></span>${state.isAdmin?`<button class="btn sm" data-act="ask-claude">↻ 更新</button>`:""}</div><p class="lead" style="margin-top:4px">試合日・会場・サポート担当</p>`;
   if(state.isAdmin && seedEventsLeft().length) h += `<div class="card" style="margin-bottom:12px"><b>ボクシングモバイルの試合予定を取り込む・更新する</b><div class="sub">${seedEventsLeft().map(e=>esc(fmtDate(e.date)+" "+e.title)).join("<br>")}</div><div class="admin-actions"><button class="btn primary sm" data-act="seed-events">取り込む</button></div></div>`;
   h += up.length ? `<div class="list">${up.map(e=>eventCard(e,false)).join("")}</div>` : `<div class="empty">予定されている試合はありません。</div>`;
   if(past.length) h += `<details class="more"><summary>終わった試合（${past.length}）</summary><div class="list">${past.map(e=>eventCard(e,true)).join("")}</div></details>`;
@@ -842,7 +842,7 @@ function leaderEnterForm(){
 function viewRanking(){
   const ranked = state.members.filter(m=>m.ranking);
   const r = state.ranking || {};
-  let h = `<h2 class="sec">ランキング</h2><p class="lead">${r.updated?`最終更新：${esc(fmtDate(r.updated))}`:"最終更新日は未設定です"}</p>`;
+  let h = `<div class="row" style="margin-top:22px"><h2 class="sec" style="margin:0">ランキング</h2><span class="grow"></span>${state.isAdmin?`<button class="btn sm" data-act="ask-claude">↻ 更新</button>`:""}</div><p class="lead">${r.updated?`最終更新：${esc(fmtDate(r.updated))}`:"最終更新日は未設定です"}</p>`;
   h += ranked.length ? `<div class="list">${ranked.map(m=>`<div class="card"><div class="member">${avatar(m)}<div class="grow"><div class="name">${esc(m.sei)} ${esc(m.mei)}</div><div class="tags"><span class="tag">${esc(m.weightClass||"")}</span></div><div class="sub" style="color:var(--accent);font-weight:700">${esc(m.ranking)}</div>${m.rankingDetail?`<div class="sub">${esc(m.rankingDetail)}</div>`:""}${m.record?`<div class="sub">${esc(m.record)}</div>`:""}</div></div></div>`).join("")}</div>`
     : `<div class="empty">ランキング入りしている選手はいません。</div>`;
   if(r.note) h += `<div class="card" style="margin-top:10px"><div class="sub" style="margin:0">${esc(r.note)}</div></div>`;
@@ -1083,6 +1083,15 @@ document.addEventListener("click", async e=>{
   const find = (arr)=>arr.find(x=>x.id===id);
   switch(act){
     case "close": closeSheet(); break;
+    case "ask-claude": {
+      const msg = "ランキング・試合を更新する";
+      let copied = false; try{ await navigator.clipboard.writeText(msg); copied = true; }catch(_){}
+      openSheet(`<h3>Claudeで更新する</h3>
+        <p class="note">${copied?"依頼文「<b>"+esc(msg)+"</b>」をコピーしました。":"依頼文：<b>"+esc(msg)+"</b>"}<br>「Claudeを開く」を押すと、いつものトークが開きます。入力欄を長押しして<b>ペースト</b>し、送信してください。</p>
+        <p class="note">Claudeがボクシングモバイルで最新のランキング・試合予定を調べて、このアプリに反映します（パソコンのChromeを開いておいてください）。</p>
+        <div class="row"><button class="btn" data-act="close">やめる</button><span class="grow"></span><a class="btn primary" href="https://claude.ai/code/session_015HcTk4zD8Ew3DhgBN6tokU" target="_blank" rel="noopener" style="text-decoration:none">Claudeを開く</a></div>`);
+      break;
+    }
     case "vcode-new": vcodeForm(); break;
     case "vcode-del": confirmSheet(`合言葉「${id}」を削除しますか？`, "削除", async ()=>{ const b=writeBatch(db); b.delete(doc(db,"viewCodes",id)); state.viewerDevices.filter(d=>d.code===id).forEach(d=>b.delete(doc(db,"viewers",d.id))); await b.commit(); toast("削除しました"); }); break;
     case "open-tickets": state.ticketEventId=id; state.tab="tickets"; render(); window.scrollTo(0,0); break;
