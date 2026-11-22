@@ -68,6 +68,19 @@ p.lead{color:var(--muted);font-size:13px;margin:0 0 14px}
 .ev-block{margin-top:10px;font-size:14px}
 .ev-block h4{margin:0 0 4px;font-size:12px;color:var(--muted)}
 .ev-block .pre{white-space:pre-wrap}
+.board{padding:6px 12px}
+.brow{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.brow:last-child{border-bottom:0}
+.brow.lead{background:#fbe9e8;margin:0 -12px;padding:8px 12px;border-radius:12px 12px 0 0}
+.brole{flex:none;width:86px;font-size:12px;font-weight:900;line-height:1.35}
+.brow.lead .brole{color:var(--accent)}
+.bwho{flex:1;display:flex;flex-wrap:wrap;gap:4px}
+.bnone{font-size:12px;color:var(--muted)}
+.mchip{display:inline-flex;align-items:center;gap:4px;background:#efece6;border-radius:99px;padding:2px 8px 2px 2px;font-size:12px;font-weight:700;white-space:nowrap}
+.mchip img,.mchip i{width:22px;height:22px;border-radius:50%;object-fit:cover;flex:none}
+.mchip i{background:#8f897e;color:#fff;font-style:normal;font-size:11px;display:grid;place-items:center}
+.mchip.lead{background:var(--accent);color:#fff}
+.mchip b{font-size:10px;background:#fff;color:var(--accent);border-radius:99px;padding:0 5px;margin-left:2px}
 .bouts{display:flex;flex-direction:column;gap:8px;margin-top:2px}
 .bout{border-left:3px solid var(--accent);padding:2px 0 2px 10px}
 .bout-no{font-size:12px;font-weight:700;color:var(--accent)}
@@ -182,6 +195,7 @@ function ageOf(m){
 const state = { tab:"members", members:[], events:[], pending:[], manual:null, ranking:null, isAdmin:false, isLeader:false, support:[], leaderCodes:[], leaderDevices:[], ready:{members:false,events:false,support:false} };
 const DEFAULT_SUPPORT_ROLES = ["タイムキーパー","水バケツ準備","救急箱を運ぶ","水バケツを運ぶ","会場設営、片付け"];
 const supportRoles = () => state.supportRoles || DEFAULT_SUPPORT_ROLES;
+const allRoles = () => ["リーダー", ...supportRoles().filter(r=>r!=="リーダー")];
 let unsubCodes = null, unsubLeaders = null;
 let unsubPending = null;
 
@@ -382,22 +396,24 @@ function viewSupport(){
   const ev = state.events.find(e=>e.id===state.supportEventId);
   const list = evSupport(state.supportEventId);
   let h = `<div style="margin-top:14px"><button class="btn sm" data-act="back-events">← 試合予定</button></div>
-    <div class="row" style="margin-top:12px"><h2 class="sec" style="margin:0">サポートメンバー</h2>${state.isLeader?`<span class="tag rank">リーダー</span>`:""}</div>
+    <div class="row" style="margin-top:12px"><h2 class="sec" style="margin:0">サポートメンバー</h2>${state.isLeader?`<span class="tag rank">編集権限あり</span>`:""}</div>
     ${ev?`<div class="card" style="margin-top:8px;padding:10px 14px"><div style="font-weight:900">${esc(fmtDate(ev.date))}${ev.time?` ${esc(ev.time)}〜`:""}</div><div class="sub" style="margin-top:2px">${esc(ev.title||"試合")}${ev.venue?`・${esc(ev.venue)}`:""}</div></div>`:""}
-    <p class="lead" style="margin-top:8px">${list.length}人${can?"・役割をタップすると付け外しできます":""}</p>`;
+    <p class="lead" style="margin-top:8px">${list.length}人${can?"・各役割の「選ぶ」から人を割り当てます":""}</p>`;
   if(!state.ready.support) return h + `<div class="loading">読み込み中…</div>`;
-  const roles = supportRoles();
-  h += list.length ? `<div class="list">${list.map(sm=>{ const m = memberOf(sm) || {sei:sm.name||"?"}; const mine = sm.roles||[];
-      const shownRoles = can ? roles : roles.filter(r=>mine.includes(r)).concat(mine.filter(r=>!roles.includes(r)));
-      return `<div class="card"><div class="member">${avatar(m)}<div class="grow">
-        <div class="name">${esc(m.mei!==undefined?`${m.sei} ${m.mei||""}`:sm.name)}</div>
-        ${catOf(m)?`<div class="sub" style="margin-top:0">${esc(gradeLabel(m)||catOf(m))}</div>`:""}
-        <div class="tags" style="margin-top:8px">${shownRoles.length?shownRoles.map(r=> can
-          ? `<button class="chip ${mine.includes(r)?"on":""}" data-act="role-toggle" data-id="${sm.id}" data-role="${esc(r)}">${esc(r)}</button>`
-          : `<span class="tag rank">${esc(r)}</span>`).join(""):`<span class="sub" style="margin:0">役割なし</span>`}</div>
-      </div></div>
-      ${can?`<div class="admin-actions"><button class="btn sm danger" data-act="support-del" data-id="${sm.id}">外す</button></div>`:""}</div>`; }).join("")}</div>`
-    : `<div class="empty">まだサポートメンバーがいません。${can?"<br>右下の「＋ メンバーを追加」から所属者を選んでください。":""}</div>`;
+  const roles = allRoles();
+  if(!list.length){
+    h += `<div class="empty">まだサポートメンバーがいません。${can?"<br>右下の「＋ メンバーを追加」から所属者を選んでください。":""}</div>`;
+  } else {
+    const chip = sm => { const m = memberOf(sm) || {sei:sm.name||"?"}; const nm = m.mei!==undefined?`${m.sei} ${m.mei||""}`.trim():sm.name;
+      const lead = (sm.roles||[]).includes("リーダー");
+      return `<span class="mchip ${lead?"lead":""}">${m.photo?`<img src="${esc(m.photo)}" alt="">`:`<i>${esc((m.sei||"?").slice(0,1))}</i>`}${esc(nm)}${lead?`<b>リーダー</b>`:""}</span>`; };
+    const sortLead = arr => arr.slice().sort((x,y)=>((y.roles||[]).includes("リーダー"))-((x.roles||[]).includes("リーダー")));
+    h += `<div class="card board">${roles.map(r=>{ const who = sortLead(list.filter(sm=>(sm.roles||[]).includes(r)));
+      return `<div class="brow ${r==="リーダー"?"lead":""}"><div class="brole">${esc(r)}</div><div class="bwho">${who.length?who.map(chip).join(""):`<span class="bnone">未定</span>`}</div>${can?`<button class="btn sm" data-act="role-assign" data-role="${esc(r)}">選ぶ</button>`:""}</div>`; }).join("")}
+      ${(()=>{ const none = list.filter(sm=>!(sm.roles||[]).some(r=>roles.includes(r))); return none.length?`<div class="brow"><div class="brole" style="color:var(--muted)">役割なし</div><div class="bwho">${none.map(chip).join("")}</div>${can?`<span style="width:44px"></span>`:""}</div>`:""; })()}
+    </div>`;
+    if(can) h += `<details class="more"><summary>メンバー一覧・外す（${list.length}人）</summary><div class="card" style="padding:8px 12px">${sortLead(list).map(sm=>`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="grow">${chip(sm)}</span><button class="btn sm danger" data-act="support-del" data-id="${sm.id}">外す</button></div>`).join("")}</div></details>`;
+  }
   if(can) h += `<div style="margin-top:12px"><button class="btn" data-act="roles-edit">役割の項目を編集</button></div>`;
   if(state.isAdmin){
     h += `<h3 style="margin:26px 0 4px;font-size:16px;font-weight:900">リーダーID</h3><p class="note" style="margin-top:0">IDを知っている人は、そのスマホでIDを入れるとリーダーになり、サポートメンバーの追加・役割の割り当て・外すことができます。IDを削除すると、その人はすぐに操作できなくなります。</p>`;
@@ -439,6 +455,22 @@ function supportPicker(){
     try{ await b.commit(); closeSheet(); toast(`${picked.size}人を追加しました`); }catch(e){ $("#pkErr").textContent = leaderErr(e); }
   });
   draw();
+}
+function roleAssignForm(role){
+  const list = evSupport(state.supportEventId);
+  openSheet(`<h3>「${esc(role)}」の担当</h3><p class="note">この試合のサポートメンバーから選んでください。</p>
+    <div class="list" id="raList" style="gap:6px">${list.map(sm=>{ const m=memberOf(sm)||{sei:sm.name||"?"}; const on=(sm.roles||[]).includes(role);
+      return `<label class="card" style="display:flex;gap:10px;align-items:center;padding:8px 10px;cursor:pointer"><input type="checkbox" value="${sm.id}" ${on?"checked":""} style="width:22px;height:22px;flex:none">
+        ${avatar(m).replace('class="avatar"','class="avatar" style="width:40px;height:40px;font-size:14px"')}<span class="grow" style="font-weight:700">${esc(m.mei!==undefined?`${m.sei} ${m.mei||""}`:sm.name)}</span></label>`; }).join("")}</div>
+    <div class="err" id="raErr"></div>
+    <div class="row" style="margin-top:12px"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="raSave">決定</button></div>`);
+  $("#raSave").addEventListener("click", async ()=>{
+    const checked = new Set([...document.querySelectorAll("#raList input:checked")].map(i=>i.value));
+    const b = writeBatch(db); let n=0;
+    list.forEach(sm=>{ const cur=sm.roles||[]; const has=cur.includes(role), want=checked.has(sm.id);
+      if(has!==want){ b.update(doc(db,"support",sm.id), {roles: want?[...cur,role]:cur.filter(r=>r!==role)}); n++; } });
+    try{ if(n) await b.commit(); closeSheet(); toast("保存しました"); }catch(e){ $("#raErr").textContent = leaderErr(e); }
+  });
 }
 function rolesForm(){
   let roles = supportRoles().slice();
@@ -676,6 +708,7 @@ document.addEventListener("click", async e=>{
     case "back-events": state.tab="events"; render(); window.scrollTo(0,0); break;
     case "support-new": supportPicker(); break;
     case "roles-edit": rolesForm(); break;
+    case "role-assign": roleAssignForm(t.dataset.role); break;
     case "role-toggle": { const sm=find(state.support); if(!sm) break; const r=t.dataset.role; const cur=sm.roles||[];
       const next = cur.includes(r) ? cur.filter(x=>x!==r) : [...cur, r];
       sm.roles = next; render();
