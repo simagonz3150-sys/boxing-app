@@ -14,6 +14,7 @@
   --shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.05);
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 button,input,textarea,select{font:inherit;color:inherit}
 .wrap{max-width:720px;margin:0 auto;padding:0 16px}
@@ -370,7 +371,7 @@ function viewManual(){
 }
 
 function viewPending(){
-  let h = `<h2 class="sec">登録の申請</h2><p class="lead">「登録する」を押すと選手一覧に載ります</p>`;
+  let h = `<h2 class="sec">登録の申請</h2><p class="lead">「そのまま登録」か「編集して登録」で所属者の一覧に載ります</p>`;
   if(!state.pending.length) return h + `<div class="empty">新しい申請はありません。</div>`;
   return h + `<div class="list">${state.pending.map(p=>{
     const when = p.submittedAt?.toDate ? p.submittedAt.toDate().toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}) : "";
@@ -380,7 +381,7 @@ function viewPending(){
       ${p.age?`<div class="sub">${esc(p.age)}歳</div>`:""}
       ${p.note?`<div class="sub">${esc(p.note)}</div>`:""}
       <div class="sub" style="font-size:11px">${esc(when)} 送信</div></div></div>
-      <div class="admin-actions"><button class="btn sm danger" data-act="pending-reject" data-id="${p.id}">却下</button><button class="btn sm ok" data-act="pending-approve" data-id="${p.id}">登録する</button></div></div>`;
+      <div class="admin-actions"><button class="btn sm danger" data-act="pending-reject" data-id="${p.id}">却下</button><button class="btn sm" data-act="pending-edit" data-id="${p.id}">編集して登録</button><button class="btn sm ok" data-act="pending-approve" data-id="${p.id}">そのまま登録</button></div></div>`;
   }).join("")}</div>`;
 }
 
@@ -394,7 +395,7 @@ const opt = (list, val) => `<option value="">選んでください</option>` + l
 function memberForm(m, mode){
   // mode: "register" (public), "new" / "edit" (admin)
   const admin = mode!=="register";
-  const title = mode==="register" ? "所属者の登録" : mode==="new" ? "所属者を追加" : "所属者を編集";
+  const title = mode==="register" ? "所属者の登録" : mode==="new" ? "所属者を追加" : mode==="approve" ? "申請を編集して登録" : "所属者を編集";
   openSheet(`<h3>${title}</h3>
     ${mode==="register"?`<p class="note">送信した内容は、管理者が確認してから掲載されます。送信後は自分では変更できないので、直したいときは管理者に伝えてください。</p>`:""}
     <div class="photo-pick"><div id="pv">${avatar(m)}</div>
@@ -406,7 +407,7 @@ function memberForm(m, mode){
     <label class="f" id="fGradeWrap" hidden>学年<select id="fGrade"></select></label>
     <div class="two"><label class="f">年齢<input id="fAge" type="number" min="1" max="99" inputmode="numeric" value="${esc(ageOf(m))}"></label><label class="f">階級<select id="fCls">${opt(CLASSES,m.weightClass)}</select></label></div>
     <div class="err" id="fErr"></div>
-    <div class="row"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="fSave">${mode==="register"?"送信する":"保存"}</button></div>`);
+    <div class="row"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="fSave">${mode==="register"?"送信する":mode==="approve"?"登録する":"保存"}</button></div>`);
   let photo = m.photo || "";
   const syncGrade = ()=>{ const n = GRADES[$("#fCat").value]; $("#fGradeWrap").hidden = !n;
     if(n){ const cur = $("#fGrade").value || String(m.grade||""); $("#fGrade").innerHTML = `<option value="">選んでください</option>`+Array.from({length:n},(_,i)=>`<option value="${i+1}" ${String(i+1)===cur?"selected":""}>${i+1}年生</option>`).join(""); } };
@@ -436,6 +437,12 @@ function memberForm(m, mode){
       if(!ageV) data.age = "";
       if(m.birthDate && String(ageOf(m)) !== ageV) data.birthDate = "";
       if(!photo) data.photo = "";
+      if(mode==="approve"){
+        const b = writeBatch(db);
+        b.set(doc(collection(db,"members")), {...data, createdAt: serverTimestamp()});
+        b.delete(doc(db,"pending",m.id));
+        await b.commit(); closeSheet(); toast(`${data.sei}さんを登録しました`); return;
+      }
       if(mode==="new") await addDoc(collection(db,"members"), {...data, createdAt: serverTimestamp()});
       else await updateDoc(doc(db,"members",m.id), data);
       closeSheet(); toast("保存しました");
@@ -568,6 +575,7 @@ document.addEventListener("click", async e=>{
       try{ await b.commit(); toast(`${p.sei}さんを登録しました`); }catch(err){ t.disabled=false; toast(errMsg(err)); }
       break;
     }
+    case "pending-edit": memberForm(find(state.pending), "approve"); break;
     case "pending-reject": { const p=find(state.pending); confirmSheet(`${p.sei}さんの申請を却下しますか？`, "却下", ()=>deleteDoc(doc(db,"pending",id))); break; }
   }
 });
