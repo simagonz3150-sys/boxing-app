@@ -81,6 +81,13 @@ p.lead{color:var(--muted);font-size:13px;margin:0 0 14px}
 .chk{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:14px;cursor:pointer}
 .chk input{width:20px;height:20px;flex:none;accent-color:var(--ok)}
 .chk.on span{color:var(--muted);text-decoration:line-through}
+.plan .pgrp{padding:8px 0;border-bottom:1px solid var(--line)}
+.plan .pgrp:last-child{border-bottom:0}
+.plan .pt{font-weight:900;font-size:14px;margin-bottom:4px}
+.plan .pinfo{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:#4a4740;margin-bottom:6px}
+.seg{display:inline-flex;flex:none;border:1px solid var(--line);border-radius:99px;overflow:hidden}
+.seg button{border:0;background:#fff;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer}
+.seg button.on{background:#141414;color:#fff}
 .bsec{font-size:14px;font-weight:900;margin:16px 2px 6px;display:flex;align-items:center;gap:6px}
 .bsec span{font-size:11px;background:#141414;color:#fff;border-radius:99px;padding:2px 8px}
 .brow{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);min-height:38px}
@@ -308,9 +315,10 @@ onSnapshot(collection(db,"support"), snap=>{
   state.commonRoles = Array.isArray(cfg.commonRoles) ? cfg.commonRoles : null;
   state.leaderLabel = (typeof cfg.leaderLabel==="string" && cfg.leaderLabel.trim()) ? cfg.leaderLabel.trim() : null;
   state.checkItems = Array.isArray(cfg.checkItems) ? cfg.checkItems : null;
+  state.plans = {}; snap.docs.filter(d=>d.id.startsWith("plan_")).forEach(d=>{ state.plans[d.id.slice(5)] = d.data(); });
   state.checks = {}; snap.docs.filter(d=>d.id.startsWith("chk_")).forEach(d=>{ state.checks[d.id.slice(4)] = d.data().c || {}; });
   state.assign = {}; snap.docs.filter(d=>d.id.startsWith("asg_")).forEach(d=>{ state.assign[d.id.slice(4)] = d.data().a || {}; });
-  state.support = snap.docs.filter(d=>d.id!=="_config" && !d.id.startsWith("asg_") && !d.id.startsWith("chk_")).map(d=>({id:d.id,...d.data()})).sort((a,b)=>{
+  state.support = snap.docs.filter(d=>d.id!=="_config" && !d.id.startsWith("asg_") && !d.id.startsWith("chk_") && !d.id.startsWith("plan_")).map(d=>({id:d.id,...d.data()})).sort((a,b)=>{
     const ma=memberOf(a), mb=memberOf(b); return (ma?.kana||a.name||"").localeCompare(mb?.kana||b.name||"","ja"); });
   state.ready.support = true; render();
 }, ()=>{ state.ready.support = true; render(); });
@@ -560,6 +568,19 @@ function viewSupport(){
       return `<span class="mchip ${lead?"lead":""}">${m.photo?`<img src="${esc(m.photo)}" alt="">`:`<i>${esc((m.sei||"?").slice(0,1))}</i>`}${esc(nm)}${lead?`<b>${esc(leaderLabel())}</b>`:""}</span>`; };
     const row = (key, role) => { const ids = asg[key]||[]; const who = list.filter(sm=>ids.includes(sm.id)).sort((x,y)=>leaders.has(y.id)-leaders.has(x.id));
       return `<div class="brow ${key==="common|リーダー"?"lead":""}"><div class="brole">${esc(roleLabel(role))}</div><div class="bwho">${who.length?who.map(chip).join(""):`<span class="bnone">未定</span>`}</div>${can?`<button class="btn sm" data-act="role-assign" data-key="${esc(key)}" data-role="${esc(roleLabel(role))}">選ぶ</button>`:""}</div>`; };
+    const plan = (state.plans||{})[state.supportEventId] || {};
+    const tg = plan.together||{}, os = plan.onsite||{};
+    const pick = ids => { const w = list.filter(sm=>(ids||[]).includes(sm.id)); return w.length ? w.map(chip).join("") : `<span class="bnone">未定</span>`; };
+    h += `<div class="bsec">現地に行く計画${can?`<div class="grow"></div><button class="btn sm" data-act="plan-edit">編集</button>`:""}</div>
+      <div class="card board plan">
+        <div class="pgrp"><div class="pt">🚃 一緒に行くメンバー</div>
+          <div class="pinfo"><span>📍 集合場所：<b>${esc(tg.place||"未定")}</b></span><span>🕐 集合時間：<b>${esc(tg.time||"未定")}</b></span></div>
+          <div class="bwho">${pick(tg.ids)}</div></div>
+        <div class="pgrp"><div class="pt">🏟 現地集合メンバー</div>
+          <div class="pinfo"><span>🕐 待ち合わせ：<b>${esc(os.time||"未定")}</b></span>${os.place?`<span>📍 ${esc(os.place)}</span>`:""}</div>
+          <div class="bwho">${pick(os.ids)}</div></div>
+        ${plan.memo?`<div class="note2" style="margin:8px 0 4px">${esc(plan.memo)}</div>`:""}
+      </div>`;
     h += `<div class="bsec">共通事項</div><div class="card board">${commonRoles().map(r=>row("common|"+r, r)).join("")}</div>`;
     const chk = (state.checks||{})[state.supportEventId] || {};
     const checkBlock = key => { const items = checkItems(); if(!items.length) return "";
@@ -676,6 +697,32 @@ function rolesForm(){
     try{ await b.commit(); closeSheet(); toast("保存しました"); }catch(e){ $("#rlErr").textContent = leaderErr(e); }
   });
   draw();
+}
+function planForm(){
+  const evId = state.supportEventId, list = evSupport(evId);
+  const plan = (state.plans||{})[evId] || {}; const tg = plan.together||{}, os = plan.onsite||{};
+  const choice = {}; list.forEach(sm=>{ choice[sm.id] = (tg.ids||[]).includes(sm.id) ? "t" : (os.ids||[]).includes(sm.id) ? "o" : ""; });
+  const inp = 'style="display:block;width:100%;margin-top:4px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;font-size:16px"';
+  const drawList = ()=>{ $("#plList").innerHTML = list.map(sm=>{ const m=memberOf(sm)||{sei:sm.name||"?"}; const c=choice[sm.id];
+    return `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line);flex-wrap:nowrap"><span class="grow" style="font-weight:700;min-width:0">${esc(m.mei!==undefined?`${m.sei} ${m.mei||""}`:sm.name)}</span>
+      <span class="seg">${[["t","一緒に"],["o","現地"],["","未定"]].map(([v,l])=>`<button type="button" class="${c===v?"on":""}" data-pl="${sm.id}" data-v="${v}">${l}</button>`).join("")}</span></div>`; }).join("") || `<div class="empty">先にサポートメンバーを追加してください</div>`; };
+  openSheet(`<div id="plWrap"><h3>現地に行く計画</h3>
+    <div class="group-h" style="margin-top:0">🚃 一緒に行くメンバー</div>
+    <div class="two"><label class="f">集合場所<input id="plTP" maxlength="40" value="${esc(tg.place)}" placeholder="例：名古屋駅 金の時計" ${inp}></label><label class="f">集合時間<input id="plTT" maxlength="20" value="${esc(tg.time)}" placeholder="例：9:30" ${inp}></label></div>
+    <div class="group-h" style="margin-top:0">🏟 現地集合メンバー</div>
+    <div class="two"><label class="f">待ち合わせ時間<input id="plOT" maxlength="20" value="${esc(os.time)}" placeholder="例：11:00" ${inp}></label><label class="f">待ち合わせ場所 <small>任意</small><input id="plOP" maxlength="40" value="${esc(os.place)}" placeholder="例：会場正面入口" ${inp}></label></div>
+    <div class="group-h" style="margin-top:0">メンバーの振り分け</div><div id="plList"></div>
+    <label class="f" style="margin-top:12px">メモ <small>任意</small><textarea id="plMemo" maxlength="200" style="min-height:60px">${esc(plan.memo)}</textarea></label>
+    <div class="err" id="plErr"></div>
+    <div class="row"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="plSave">保存</button></div></div>`);
+  $("#plWrap").addEventListener("click", e=>{ const b=e.target.closest("[data-pl]"); if(b){ choice[b.dataset.pl]=b.dataset.v; drawList(); } });
+  $("#plSave").addEventListener("click", async ()=>{
+    const ids = v => list.filter(sm=>choice[sm.id]===v).map(sm=>sm.id);
+    const data = { eventId:"_plan", together:{place:$("#plTP").value.trim(), time:$("#plTT").value.trim(), ids:ids("t")},
+      onsite:{time:$("#plOT").value.trim(), place:$("#plOP").value.trim(), ids:ids("o")}, memo:$("#plMemo").value.trim() };
+    try{ await setDoc(doc(db,"support","plan_"+evId), data); closeSheet(); toast("保存しました"); }catch(e){ $("#plErr").textContent = leaderErr(e); }
+  });
+  drawList();
 }
 function checksForm(){
   let items = checkItems().map(r=>({orig:r,name:r}));
@@ -978,6 +1025,7 @@ document.addEventListener("click", async e=>{
     case "support-new": supportPicker(); break;
     case "roles-edit": rolesForm(); break;
     case "checks-edit": checksForm(); break;
+    case "plan-edit": planForm(); break;
     case "check-toggle": { e.preventDefault(); if(!canEditSupport()) break; const evId=state.supportEventId; const key=t.dataset.key;
       const c = {...((state.checks||{})[evId]||{})}; if(c[key]) delete c[key]; else c[key]=true;
       const prev = (state.checks||{})[evId]; state.checks = {...(state.checks||{}), [evId]: c}; render();
