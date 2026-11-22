@@ -308,7 +308,7 @@ function viewMembers(){
   let h = `<h2 class="sec">所属者</h2><p class="lead">${state.members.length}人</p>`;
   h += `<div class="chips">${["すべて",...CATEGORIES].map(c=>{ const n = c==="すべて"?state.members.length:state.members.filter(m=>catOf(m)===c).length;
     return `<button class="chip ${c===f?"on":""}" data-act="filter" data-cat="${esc(c)}">${esc(c)}<span>${n}</span></button>`; }).join("")}</div>`;
-  if(state.isAdmin && seedLeft().length) h += `<div class="card" style="margin-bottom:12px"><b>ボクシングモバイルの選手を取り込む</b><div class="sub">松田ジム所属のプロ${seedLeft().length}人（${esc(seedLeft().map(s=>s.sei).join("・"))}）を、階級・生年月日・戦績・ランキング付きで登録します。登録済みの選手は最新の内容に更新します（顔写真はそのまま）。</div><div class="admin-actions"><button class="btn primary sm" data-act="seed-import">取り込む</button></div></div>`;
+  if(false) h += `<div class="card" style="margin-bottom:12px"><b>ボクシングモバイルの選手を取り込む</b><div class="sub">松田ジム所属のプロ${seedLeft().length}人（${esc(seedLeft().map(s=>s.sei).join("・"))}）を、階級・生年月日・戦績・ランキング付きで登録します。登録済みの選手は最新の内容に更新します（顔写真はそのまま）。</div><div class="admin-actions"><button class="btn primary sm" data-act="seed-import">取り込む</button></div></div>`;
   if(state.loadError) return h + `<div class="empty">${esc(state.loadError)}</div>`;
   if(!shown.length) return h + `<div class="empty">${f==="すべて"?"まだ登録がありません。<br>右下の「＋ 登録する」から登録できます。":esc(f)+"の登録はまだありません。"}</div>`;
   if(f!=="すべて") return h + `<div class="list">${shown.map(memberCard).join("")}</div>`;
@@ -405,11 +405,6 @@ function memberForm(m, mode){
     <label class="f">分類<select id="fCat">${opt(CATEGORIES,catOf(m))}</select></label>
     <label class="f" id="fGradeWrap" hidden>学年<select id="fGrade"></select></label>
     <div class="two"><label class="f">年齢<input id="fAge" type="number" min="1" max="99" inputmode="numeric" value="${esc(ageOf(m))}"></label><label class="f">階級<select id="fCls">${opt(CLASSES,m.weightClass)}</select></label></div>
-    ${admin?`<label class="f">出身地 <small>任意</small><input id="fHome" maxlength="40" value="${esc(m.hometown)}"></label>
-    <label class="f">戦績 <small>例：5勝(3KO)2敗1分</small><input id="fRec" maxlength="60" value="${esc(m.record)}"></label>
-    <label class="f">ランキング <small>例：日本バンタム級 8位</small><input id="fRank" maxlength="60" value="${esc(m.ranking)}"></label>
-    <label class="f">その他のランキング・タイトル <small>任意</small><input id="fRankD" maxlength="200" value="${esc(m.rankingDetail)}"></label>`:""}
-    ${admin?`<label class="f">メモ <small>任意</small><textarea id="fNote" maxlength="300">${esc(m.note)}</textarea></label>`:""}
     <div class="err" id="fErr"></div>
     <div class="row"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="fSave">${mode==="register"?"送信する":"保存"}</button></div>`);
   let photo = m.photo || "";
@@ -437,8 +432,6 @@ function memberForm(m, mode){
         openSheet(`<h3>送信しました</h3><p>管理者が確認したあと、所属者の一覧に載ります。</p><div class="row"><span class="grow"></span><button class="btn primary" data-act="close">閉じる</button></div>`);
         return;
       }
-      data.record = $("#fRec").value.trim(); data.ranking = $("#fRank").value.trim(); data.note = $("#fNote").value.trim();
-      data.hometown = $("#fHome").value.trim(); data.rankingDetail = $("#fRankD").value.trim();
       if(!GRADES[data.category]) data.grade = "";
       if(!ageV) data.age = "";
       if(m.birthDate && String(ageOf(m)) !== ageV) data.birthDate = "";
