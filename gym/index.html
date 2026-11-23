@@ -178,12 +178,12 @@ label.f textarea{min-height:90px;resize:vertical}
 <body>
 <header class="top">
   <div class="wrap">
-    <div class="brand"><h1>松田ジム</h1><span class="badge" id="adminBadge" hidden>管理者</span><a class="hguide" href="manual.pdf?v=3" target="_blank" rel="noopener">📘 使い方</a><span class="grow"></span></div>
+    <div class="brand"><h1>松田ジム</h1><span class="badge" id="adminBadge" hidden>管理者</span><a class="hguide" href="guide.html?v=1">📘 使い方</a><span class="grow"></span></div>
     <nav class="tabs" id="tabs"></nav>
   </div>
 </header>
 <main class="wrap" id="view"><div class="loading">読み込み中…</div></main>
-<footer><button id="adminBtn">管理者ログイン</button></footer>
+<footer><button id="adminBtn">管理者ログイン</button><button id="mgrBtn" hidden style="margin-left:14px">会長IDを入力</button></footer>
 <button class="btn primary fab" id="fab" hidden></button>
 <div class="sheet-bg" id="sheetBg"><div class="sheet" id="sheet"></div></div>
 <div class="toast" id="toast"></div>
@@ -207,7 +207,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-const CATEGORIES = ["トレーナー","プロ選手","練習生（プロ志望）","一般会員","大学生","高校生","中学生","小学生"];
+const CATEGORIES = ["会長","トレーナー","プロ選手","練習生（プロ志望）","一般会員","大学生","高校生","中学生","小学生"];
 const GRADES = {"大学生":4,"高校生":3,"中学生":3,"小学生":6};
 const OLD_CAT = {"プロ":"プロ選手","練習生":"練習生（プロ志望）"};
 const catOf = m => OLD_CAT[m.category] || m.category || "";
@@ -251,7 +251,7 @@ function ageOf(m){
   return m.age || "";
 }
 
-const state = { tab:"members", members:[], events:[], pending:[], manual:null, ranking:null, isAdmin:false, isLeader:false, access:"checking", viewCodes:[], viewerDevices:[], support:[], leaderCodes:[], leaderDevices:[], ready:{members:false,events:false,support:false} };
+const state = { tab:"members", members:[], events:[], pending:[], manual:null, ranking:null, isAdmin:false, isOwner:false, isManager:false, managerCodes:[], managerDevices:[], isLeader:false, access:"checking", viewCodes:[], viewerDevices:[], support:[], leaderCodes:[], leaderDevices:[], ready:{members:false,events:false,support:false} };
 const DEFAULT_BOUT_ROLES = ["タイムキーパー","水バケツ準備","救急箱を運ぶ","水バケツを運ぶ"];
 const DEFAULT_COMMON_ROLES = ["会場設営、片付け"];
 const leaderLabel = () => state.leaderLabel || "リーダー";
@@ -268,7 +268,7 @@ function boutsOf(e){
     return { key: "b:"+fighter, label: p.length>=2 ? p[0] : "", fighter, detail: p.slice(2).join(" ") };
   });
 }
-let unsubCodes = null, unsubLeaders = null, unsubVCodes = null, unsubViewers = null;
+let unsubCodes = null, unsubLeaders = null, unsubVCodes = null, unsubViewers = null, unsubMCodes = null, unsubManagers = null;
 let unsubPending = null;
 
 /* ---------- helpers ---------- */
@@ -352,27 +352,36 @@ function startData(){
 
 }
 onAuthStateChanged(auth, async user=>{
-  state.isAdmin = !!user && user.uid === ADMIN_UID;
-  if(user && !state.isAdmin && !user.isAnonymous){ signOut(auth); toast("このアカウントは管理者ではありません"); }
-  state.isLeader = false; let viewer = false;
+  state.isOwner = !!user && user.uid === ADMIN_UID;
+  if(user && !state.isOwner && !user.isAnonymous){ signOut(auth); toast("このアカウントは管理者ではありません"); }
+  state.isLeader = false; state.isManager = false; let viewer = false;
   if(user && user.isAnonymous){
     try{ const d = await getDoc(doc(db,"leaders",user.uid)); state.isLeader = d.exists(); }catch(e){ state.isLeader = false; }
     try{ const d = await getDoc(doc(db,"viewers",user.uid)); viewer = d.exists(); }catch(e){ viewer = false; }
+    try{ const d = await getDoc(doc(db,"managers",user.uid)); state.isManager = d.exists(); }catch(e){ state.isManager = false; }
   }
+  state.isAdmin = state.isOwner || state.isManager;
   state.access = (state.isAdmin || state.isLeader || viewer) ? "ok" : "gate";
   if(state.access==="ok") startData(); else stopData();
-  if(state.isAdmin && !unsubVCodes){
+  if(state.isOwner && !unsubMCodes){
+    unsubMCodes = onSnapshot(collection(db,"managerCodes"), snap=>{ state.managerCodes = snap.docs.map(d=>({id:d.id,...d.data()})); render(); }, ()=>{});
+    unsubManagers = onSnapshot(collection(db,"managers"), snap=>{ state.managerDevices = snap.docs.map(d=>({id:d.id,...d.data()})); render(); }, ()=>{});
+  }
+  if(!state.isOwner && unsubMCodes){ unsubMCodes(); unsubManagers(); unsubMCodes=unsubManagers=null; state.managerCodes=[]; state.managerDevices=[]; }
+  if(state.isOwner && !unsubVCodes){
     unsubVCodes = onSnapshot(collection(db,"viewCodes"), snap=>{ state.viewCodes = snap.docs.map(d=>({id:d.id,...d.data()})); render(); }, ()=>{});
     unsubViewers = onSnapshot(collection(db,"viewers"), snap=>{ state.viewerDevices = snap.docs.map(d=>({id:d.id,...d.data()})); render(); }, ()=>{});
   }
-  if(!state.isAdmin && unsubVCodes){ unsubVCodes(); unsubViewers(); unsubVCodes=unsubViewers=null; state.viewCodes=[]; state.viewerDevices=[]; }
-  if(state.isAdmin && !unsubCodes){
+  if(!state.isOwner && unsubVCodes){ unsubVCodes(); unsubViewers(); unsubVCodes=unsubViewers=null; state.viewCodes=[]; state.viewerDevices=[]; }
+  if(state.isOwner && !unsubCodes){
     unsubCodes = onSnapshot(collection(db,"leaderCodes"), snap=>{ state.leaderCodes = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.createdAt?.seconds||0)-(b.createdAt?.seconds||0)); render(); }, ()=>{});
     unsubLeaders = onSnapshot(collection(db,"leaders"), snap=>{ state.leaderDevices = snap.docs.map(d=>({id:d.id,...d.data()})); render(); }, ()=>{});
   }
-  if(!state.isAdmin && unsubCodes){ unsubCodes(); unsubLeaders(); unsubCodes=unsubLeaders=null; state.leaderCodes=[]; state.leaderDevices=[]; }
+  if(!state.isOwner && unsubCodes){ unsubCodes(); unsubLeaders(); unsubCodes=unsubLeaders=null; state.leaderCodes=[]; state.leaderDevices=[]; }
   $("#adminBadge").hidden = !state.isAdmin;
-  $("#adminBtn").textContent = state.isAdmin ? "ログアウト" : "管理者ログイン";
+  $("#adminBadge").textContent = state.isOwner ? "管理者" : "会長";
+  $("#adminBtn").textContent = state.isOwner ? "ログアウト" : state.isManager ? "会長の権限をやめる" : "管理者ログイン";
+  $("#mgrBtn").hidden = state.isAdmin || state.access!=="ok";
   if(state.isAdmin && !unsubPending){
     unsubPending = onSnapshot(collection(db,"pending"), snap=>{
       state.pending = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.submittedAt?.seconds||0)-(b.submittedAt?.seconds||0));
@@ -390,6 +399,7 @@ function renderTabs(){
   $("#tabs").innerHTML = tabs.map(([k,l])=>`<button data-tab="${k}" class="${state.tab===k||(k==="events"&&(state.tab==="support"||state.tab==="tickets"))?"on":""}">${l}${k==="pending"&&state.pending.length?`<span class="dot">${state.pending.length}</span>`:""}</button>`).join("");
 }
 function render(){
+  $("#mgrBtn").hidden = state.isAdmin || state.access!=="ok";
   const v = $("#view");
   const fab = $("#fab");
   fab.hidden = true;
@@ -401,7 +411,7 @@ function render(){
       <input id="gCode" maxlength="30" autocomplete="off" autocapitalize="characters" placeholder="合言葉">
       <div class="err" id="gErr"></div>
       <button class="btn primary" id="gGo" style="width:100%;padding:13px">開く</button>
-      <a href="manual.pdf?v=3" target="_blank" rel="noopener" style="display:inline-block;margin-top:16px;font-size:13px;color:var(--muted)">📘 使い方マニュアル（PDF）</a></div>`;
+      <a href="guide.html?v=1" style="display:inline-block;margin-top:16px;font-size:13px;color:var(--muted)">📘 使い方マニュアル（PDF）</a></div>`;
     if(state.access==="gate"){ const go = async ()=>{
         const code = normCode($("#gCode").value);
         if(code.length<4){ $("#gErr").textContent="合言葉を入れてください"; return; }
@@ -652,7 +662,7 @@ function viewSupport(){
     if(can) h += `<details class="more"><summary>メンバー一覧・外す（${list.length}人）</summary><div class="card" style="padding:8px 12px">${list.map(sm=>`<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="grow">${chip(sm)}</span><button class="btn sm danger" data-act="support-del" data-id="${sm.id}">外す</button></div>`).join("")}</div></details>`;
   }
   if(can) h += `<div class="row" style="margin-top:12px"><button class="btn" data-act="checks-edit">確認項目を編集</button><button class="btn" data-act="roles-edit">役割の項目を編集</button></div>`;
-  if(state.isAdmin){
+  if(state.isOwner){
     h += `<h3 style="margin:26px 0 4px;font-size:16px;font-weight:900">リーダーID</h3><p class="note" style="margin-top:0">IDを知っている人は、そのスマホでIDを入れるとリーダーになり、サポートメンバーの追加・役割の割り当て・外すことができます。IDを削除すると、その人はすぐに操作できなくなります。</p>`;
     h += state.leaderCodes.length ? `<div class="list">${state.leaderCodes.map(c=>{ const n = state.leaderDevices.filter(d=>d.code===c.id).length;
       return `<div class="card"><div class="row"><div class="grow"><div style="font-size:20px;font-weight:900;letter-spacing:.08em;font-family:ui-monospace,Menlo,monospace">${esc(fmtCode(c.id))}</div><div class="sub">${esc(c.label||"")}${c.label?"・":""}使用中の端末 ${n}台</div></div>
@@ -893,8 +903,15 @@ function viewManual(){
 }
 
 const normCode = s => (s||"").toUpperCase().replace(/[^A-Z0-9ぁ-んァ-ヶ一-龠]/g,"");
+function managerSection(){
+  let h = `<h3 style="margin:30px 0 4px;font-size:16px;font-weight:900">会長ID</h3><p class="note" style="margin-top:0">このIDを入れたスマホは、所属者・試合予定・チケット・手順書・ランキングの編集や、申請の承認ができるようになります（合言葉・リーダーID・会長IDの管理はあなただけ）。IDを削除すると、すぐに権限がなくなります。</p>`;
+  h += state.managerCodes.length ? `<div class="list">${state.managerCodes.map(c=>{ const n=state.managerDevices.filter(d=>d.code===c.id).length;
+    return `<div class="card"><div class="row"><div class="grow"><div style="font-size:20px;font-weight:900;letter-spacing:.08em;font-family:ui-monospace,Menlo,monospace">${esc(fmtCode(c.id))}</div><div class="sub">${esc(c.label||"")}${c.label?"・":""}使用中の端末 ${n}台</div></div><button class="btn sm danger" data-act="mcode-del" data-id="${esc(c.id)}">削除</button></div></div>`; }).join("")}</div>` : `<div class="empty">まだ会長IDはありません。</div>`;
+  return h + `<div style="margin-top:10px"><button class="btn primary" data-act="mcode-new">＋ 会長IDを作る</button></div>`;
+}
 function viewCodesSection(){
-  let h = `<h3 style="margin:30px 0 4px;font-size:16px;font-weight:900">閲覧用の合言葉</h3><p class="note" style="margin-top:0">アプリを開くときに必要な合言葉です。ジムの人だけに伝えてください。削除すると、その合言葉で入った端末はすぐ見られなくなります（新しい合言葉を入れ直せば見られます）。</p>`;
+  if(!state.isOwner) return "";
+  let h = managerSection() + `<h3 style="margin:30px 0 4px;font-size:16px;font-weight:900">閲覧用の合言葉</h3><p class="note" style="margin-top:0">アプリを開くときに必要な合言葉です。ジムの人だけに伝えてください。削除すると、その合言葉で入った端末はすぐ見られなくなります（新しい合言葉を入れ直せば見られます）。</p>`;
   h += state.viewCodes.length ? `<div class="list">${state.viewCodes.map(c=>{ const n=state.viewerDevices.filter(d=>d.code===c.id).length;
     return `<div class="card"><div class="row"><div class="grow"><div style="font-size:20px;font-weight:900;letter-spacing:.06em">${esc(c.id)}</div><div class="sub">${esc(c.label||"")}${c.label?"・":""}使用中の端末 ${n}台</div></div><button class="btn sm danger" data-act="vcode-del" data-id="${esc(c.id)}">削除</button></div></div>`; }).join("")}</div>`
     : `<div class="empty" style="color:var(--accent)">合言葉がまだありません。作るまで、あなた以外はアプリを開けません。</div>`;
@@ -1104,6 +1121,14 @@ document.addEventListener("click", async e=>{
       break;
     }
     case "vcode-new": vcodeForm(); break;
+    case "mcode-new": { const code = makeCode();
+      try{ await setDoc(doc(db,"managerCodes",code), {label:"会長", createdAt: serverTimestamp()});
+        openSheet(`<h3>会長IDができました</h3><div style="font-size:30px;font-weight:900;letter-spacing:.1em;text-align:center;margin:18px 0;font-family:ui-monospace,Menlo,monospace">${fmtCode(code)}</div>
+          <p class="note">会長に伝えてください。会長はアプリの一番下の「会長IDを入力」から入れます（先に合言葉で開いておく必要があります）。</p>
+          <div class="row"><button class="btn" id="mcCopy">コピー</button><span class="grow"></span><button class="btn primary" data-act="close">閉じる</button></div>`);
+        $("#mcCopy").addEventListener("click", ()=>{ navigator.clipboard?.writeText(fmtCode(code)).then(()=>toast("コピーしました"),()=>{}); });
+      }catch(err){ toast(errMsg(err)); } break; }
+    case "mcode-del": confirmSheet(`会長ID ${fmtCode(id)} を削除しますか？このIDを使っている人の権限がなくなります。`, "削除", async ()=>{ const b=writeBatch(db); b.delete(doc(db,"managerCodes",id)); state.managerDevices.filter(d=>d.code===id).forEach(d=>b.delete(doc(db,"managers",d.id))); await b.commit(); toast("削除しました"); }); break;
     case "vcode-del": confirmSheet(`合言葉「${id}」を削除しますか？`, "削除", async ()=>{ const b=writeBatch(db); b.delete(doc(db,"viewCodes",id)); state.viewerDevices.filter(d=>d.code===id).forEach(d=>b.delete(doc(db,"viewers",d.id))); await b.commit(); toast("削除しました"); }); break;
     case "open-tickets": state.ticketEventId=id; state.tab="tickets"; render(); window.scrollTo(0,0); break;
     case "ticket-new": ticketForm({}); break;
@@ -1181,8 +1206,24 @@ document.addEventListener("click", async e=>{
 });
 $("#fab").addEventListener("click", e=>{ /* handled by data-act */ });
 $("#adminBtn").addEventListener("click", ()=>{
-  if(state.isAdmin) confirmSheet("ログアウトしますか？", "ログアウト", ()=>signOut(auth));
+  if(state.isOwner) confirmSheet("ログアウトしますか？", "ログアウト", ()=>signOut(auth));
+  else if(state.isManager) confirmSheet("このスマホの会長の権限をやめますか？", "やめる", async ()=>{ try{ await deleteDoc(doc(db,"managers",auth.currentUser.uid)); }catch(e){} state.isManager=false; state.isAdmin=false; toast("会長の権限をやめました"); location.reload(); });
   else loginForm();
+});
+$("#mgrBtn").addEventListener("click", ()=>{
+  openSheet(`<h3>会長IDを入力</h3><p class="note">管理者から受け取った会長IDを入れると、このスマホで所属者の編集や申請の承認などができるようになります。一度入れれば次からは入力不要です。</p>
+    <label class="f">会長ID<input id="mgCode" maxlength="12" autocapitalize="characters" autocomplete="off" placeholder="XXXX-XXXX" style="letter-spacing:.1em;font-family:ui-monospace,Menlo,monospace"></label>
+    <div class="err" id="mgErr"></div>
+    <div class="row"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="mgGo">決定</button></div>`);
+  $("#mgGo").addEventListener("click", async ()=>{
+    const code = $("#mgCode").value.toUpperCase().replace(/[^A-Z0-9]/g,"");
+    if(code.length!==8){ $("#mgErr").textContent="IDは8文字です"; return; }
+    $("#mgGo").disabled = true;
+    try{ if(!auth.currentUser) await signInAnonymously(auth);
+      await setDoc(doc(db,"managers",auth.currentUser.uid), {code, at: serverTimestamp()});
+      toast("会長の権限が付きました"); setTimeout(()=>location.reload(), 600); }
+    catch(e){ $("#mgGo").disabled=false; $("#mgErr").textContent = (e?.code||"").includes("permission") ? "IDが違うか、使えなくなっています。" : errMsg(e); }
+  });
 });
 render();
 </script>

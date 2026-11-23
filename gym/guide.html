@@ -1,0 +1,198 @@
+<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><title>使い方マニュアル｜試合サポートメンバー</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=1">
+<style>
+@page{size:A4;margin:14mm 14mm 16mm}
+*{box-sizing:border-box}
+body{font-family:"Noto Sans CJK JP","Noto Sans JP","Hiragino Sans",sans-serif;color:#1b1b1b;font-size:10.5pt;line-height:1.65;margin:0}
+.cover{height:262mm;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;page-break-after:always}
+.cover img{width:46mm;border-radius:10mm}
+.cover h1{font-size:26pt;margin:10mm 0 2mm;font-weight:900}
+.cover .sub{font-size:13pt;color:#6d6a64}
+.cover .toc{margin-top:16mm;text-align:left;border:1px solid #e3dfd8;border-radius:4mm;padding:6mm 10mm;font-size:11.5pt}
+.cover .toc b{color:#c8231e}
+.cover .date{margin-top:12mm;font-size:9pt;color:#8f897e}
+h2.part{background:#141414;color:#fff;font-size:16pt;font-weight:900;padding:4mm 6mm;border-radius:3mm;margin:0 0 4mm}
+h2.part span{display:inline-block;background:#c8231e;border-radius:2mm;padding:0 3mm;margin-right:3mm;font-size:12pt;vertical-align:2px}
+.lead{background:#f4f2ee;border-radius:3mm;padding:3mm 5mm;margin:0 0 5mm;font-size:10pt}
+.step{display:grid;grid-template-columns:1fr 44mm;gap:6mm;align-items:start;margin:0 0 4mm;break-inside:avoid;page-break-inside:avoid}
+.step.wide{grid-template-columns:1fr 52mm 52mm}
+.step h3{margin:0 0 1.5mm;font-size:12.5pt;font-weight:900;display:flex;align-items:center;gap:2.5mm}
+.step h3 .n{flex:none;width:7.5mm;height:7.5mm;border-radius:50%;background:#c8231e;color:#fff;display:inline-grid;place-items:center;font-size:10.5pt}
+.step p{margin:0 0 1.5mm}
+.step ul{margin:0 0 1.5mm;padding-left:5mm}
+.step li{margin:0 0 .8mm}
+.step img{width:44mm;border:1px solid #d9d4cb;border-radius:3mm;display:block}
+.btn{display:inline-block;background:#c8231e;color:#fff;font-weight:700;border-radius:99px;padding:0 2.5mm;font-size:9.5pt}
+.btn.w{background:#fff;color:#1b1b1b;border:1px solid #bbb}
+.note{font-size:9pt;color:#6d6a64;background:#faf9f6;border-left:3px solid #c8231e;padding:1.5mm 3mm;margin:2mm 0 0}
+.box{border:1px solid #e3dfd8;border-radius:3mm;padding:3mm 5mm;margin:0 0 5mm;break-inside:avoid}
+.box h4{margin:0 0 1mm;font-size:11pt}
+table{border-collapse:collapse;width:100%;font-size:9.5pt;margin:1mm 0}
+td,th{border:1px solid #e3dfd8;padding:1.5mm 2.5mm;text-align:left;vertical-align:top}
+th{background:#f4f2ee;width:28%}
+.pb{page-break-before:always}
+.url{font-family:ui-monospace,Menlo,monospace;font-size:9.5pt;background:#f4f2ee;border-radius:1.5mm;padding:.5mm 2mm}
+.hs{border:2px solid #141414;border-radius:4mm;padding:4mm 5mm;margin:0 0 4mm;break-inside:avoid;page-break-inside:avoid}
+.hs h3{margin:0 0 1.5mm;font-size:12.5pt;font-weight:900;display:flex;align-items:center;gap:2.5mm}
+.hs h3 .n{flex:none;width:7.5mm;height:7.5mm;border-radius:50%;background:#c8231e;color:#fff;display:inline-grid;place-items:center;font-size:10.5pt}
+.hs p{margin:0 0 2mm}
+.hs-grid{display:grid;grid-template-columns:1fr 1fr 30mm;gap:4mm;align-items:start}
+.hs-col{background:#f4f2ee;border-radius:3mm;padding:2.5mm 3.5mm}
+.hs-h{font-weight:900;font-size:11pt;margin-bottom:1mm}
+.hs-col ol{margin:0;padding-left:5mm}
+.hs-col li{margin:0 0 1.2mm;font-size:9.8pt}
+.sm{font-size:8.5pt;color:#6d6a64}
+.ico{display:inline-block;border:1px solid #888;border-radius:1mm;padding:0 1mm;font-size:8.5pt}
+.hs-phone{background:linear-gradient(160deg,#3b5b7a,#6b4b8a);border-radius:4mm;padding:4mm 2mm 3mm;text-align:center;color:#fff;font-size:8pt;line-height:1.3}
+.hs-phone img{width:15mm;height:15mm;border-radius:3.5mm;display:block;margin:0 auto 1.5mm;background:#fff}
+
+@media screen{
+  body{background:#f4f2ee;padding:0 0 40px}
+  .topbar{position:sticky;top:0;z-index:5;background:#141414;color:#fff;display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top)) 14px 10px}
+  .topbar a{color:#fff;text-decoration:none;font-weight:900;font-size:15px;border:1px solid #555;border-radius:99px;padding:6px 14px}
+  .topbar .grow{flex:1}
+  .topbar .pdf{font-weight:700;font-size:12px}
+  .wrapg{max-width:760px;margin:0 auto;padding:16px;background:#fff}
+  .step,.step.wide{grid-template-columns:1fr !important}
+  .step img{width:min(62vw,260px) !important;margin:0 auto}
+  .hs-grid{grid-template-columns:1fr !important}
+  .hs-icon{display:flex;flex-direction:column;align-items:center}
+  .hs-phone{width:120px}
+  .pb{page-break-before:auto}
+}
+@media print{.topbar{display:none}}
+</style></head><body>
+<div class="topbar"><a href="./">← アプリに戻る</a><span class="grow"></span><a class="pdf" href="manual.pdf?v=4" target="_blank" rel="noopener">PDFで見る</a></div>
+<div class="wrapg">
+
+<div style="display:flex;align-items:center;gap:4mm;margin:0 0 4mm"><img src="guide/logo.png" style="width:14mm;border-radius:3mm"><div><div style="font-size:16pt;font-weight:900;line-height:1.2">試合サポートメンバー 使い方マニュアル</div><div style="font-size:9pt;color:#6d6a64">松田ジム・2026年11月版</div></div></div>
+<h2 class="part"><span>第1部</span>所属者の登録のしかた</h2>
+<p class="lead">ジムの所属者（会長・トレーナー・プロ選手・練習生・一般会員・学生）は、このアプリから自分で登録を申し込みます。ログインやアカウント作成は不要です。送った内容は管理者が確認してから一覧に載ります。</p>
+
+<div class="step"><div>
+  <h3><span class="n">1</span>アプリを開いて合言葉を入れる</h3>
+  <p>管理者から送られたリンクを開きます。</p>
+  <p class="url">simagonz3150-sys.github.io/boxing-app/gym/</p>
+  <p>MBGのロゴと入力欄が出たら、ジムで聞いた<b>合言葉</b>を入れて <span class="btn">開く</span> を押します。</p>
+  <p class="note">合言葉は一度入れれば、そのスマホでは次から入力不要です。合言葉はジムの人以外に教えないでください。</p>
+</div><img src="guide/01_gate.jpg" alt=""></div>
+
+<div class="step"><div>
+  <h3><span class="n">2</span>「＋ 登録する」を押す</h3>
+  <p>最初に開く「所属者」の画面で、右下の赤い <span class="btn">＋ 登録する</span> を押します。</p>
+  <p>上の分類ボタン（トレーナー・プロ選手・中学生など）を押すと、その分類の人だけを表示できます。</p>
+</div><img src="guide/02_members.jpg" alt=""></div>
+
+<div class="step"><div>
+  <h3><span class="n">3</span>自分の情報を入れて送信する</h3>
+  <table>
+    <tr><th>顔写真</th><td>「顔写真を選ぶ」から撮影、または写真を選ぶ（必須）。顔が真ん中に来るように</td></tr>
+    <tr><th>名前</th><td>姓と名を分けて入力</td></tr>
+    <tr><th>ふりがな</th><td>ひらがなで入力</td></tr>
+    <tr><th>分類</th><td>会長／トレーナー／プロ選手／練習生（プロ志望）／一般会員／大学生／高校生／中学生／小学生</td></tr>
+    <tr><th>学年</th><td>学生を選んだときだけ表示。今の学年を選ぶ</td></tr>
+    <tr><th>年齢・階級</th><td>年齢は数字だけ。階級は決まっていれば選ぶ</td></tr>
+  </table>
+  <p>入力できたら <span class="btn">送信する</span> を押します。</p>
+</div><img src="guide/03_form.jpg" alt=""></div>
+
+<div class="step"><div>
+  <h3><span class="n">4</span>管理者の確認を待つ</h3>
+  <p>「送信しました」と出たら完了です。管理者が確認すると「所属者」の一覧に載ります。</p>
+  <ul>
+    <li>送信したあとは、自分で内容を直すことはできません</li>
+    <li>名前の間違い・写真の差し替え・削除をしたいときは、管理者に伝えてください</li>
+  </ul>
+</div><div></div></div>
+
+<div class="hs">
+  <h3><span class="n">5</span>ホーム画面に追加して、アプリのように使う</h3>
+  <p>ホーム画面に追加すると、<b>「試合サポートメンバー」のアイコン</b>からすぐ開けます。ブラウザのアドレス欄が消えて、普通のアプリのように全画面で使えます。</p>
+  <div class="hs-grid">
+    <div class="hs-col"><div class="hs-h">iPhone（Safari）</div>
+      <ol>
+        <li><b>Safari</b>でアプリのリンクを開く<br><span class="sm">LINEで開いた場合は、右下の「…」→「Safariで開く」</span></li>
+        <li>画面下の<b>共有ボタン</b>（<span class="ico">□↑</span>）を押す</li>
+        <li>メニューを下にスクロールして<b>「ホーム画面に追加」</b>を押す</li>
+        <li>名前が「試合サポートメンバー」になっているのを確認して、右上の<b>「追加」</b></li>
+      </ol></div>
+    <div class="hs-col"><div class="hs-h">Android（Chrome）</div>
+      <ol>
+        <li><b>Chrome</b>でアプリのリンクを開く</li>
+        <li>右上の<b>「︙」</b>（メニュー）を押す</li>
+        <li><b>「ホーム画面に追加」</b>（または「アプリをインストール」）を押す</li>
+        <li><b>「追加」</b>（または「インストール」）を押す</li>
+      </ol></div>
+    <div class="hs-icon"><div class="hs-phone"><img src="guide/logo.png" alt=""><div>試合サポート<br>メンバー</div></div><div class="sm" style="text-align:center;margin-top:1.5mm">ホーム画面に<br>このアイコンが出ます</div></div>
+  </div>
+  <p class="note">合言葉は、ホーム画面のアイコンから開いたときにもう一度だけ入力が必要になることがあります。アイコンを削除してもアプリのデータは消えません。</p>
+</div>
+
+<h2 class="part pb"><span>第2部</span>リーダーになったら</h2>
+<p class="lead">リーダーは、試合ごとの<b>サポートメンバー</b>（誰が・どの試合で・どの役割をするか）を決める人です。管理者から「リーダーID」を受け取ると、サポートメンバー画面を操作できるようになります。</p>
+
+<div class="box"><h4>リーダーができること</h4>
+<table>
+<tr><th>できる</th><td>サポートメンバーの追加・外す／役割の割り当て／現地に行く計画の入力／確認項目のチェックと項目の編集／役割の項目の追加・名前の変更</td></tr>
+<tr><th>できない</th><td>所属者・試合予定・チケット・手順書・ランキングの編集（管理者のみ）</td></tr>
+</table></div>
+
+<div class="step"><div>
+  <h3><span class="n">1</span>試合の「👥 サポート」を開く</h3>
+  <p>「試合予定」タブで、担当する試合の日付の右にある <span class="btn w">👥 サポート</span> を押します。</p>
+  <p class="note">終わった試合は「過去の試合」に移ります。記録はそのまま残ります。</p>
+</div><img src="guide/04_events.jpg" alt=""></div>
+
+<div class="step"><div>
+  <h3><span class="n">2</span>リーダーIDを入れる（最初の1回だけ）</h3>
+  <p>サポートメンバー画面の一番下にある <span class="btn w">リーダーIDを入力</span> を押し、管理者から受け取った8文字のID（例：ABCD-2345）を入れて <span class="btn">決定</span>。</p>
+  <p>見出しの横に「編集権限あり」と出れば成功です。そのスマホでは次から入力不要です。</p>
+  <p class="note">リーダーIDは他の人に教えないでください。管理者がIDを削除すると、すぐに操作できなくなります。</p>
+</div><img src="guide/06_leader_enter.jpg" alt=""></div>
+
+<div class="step"><div>
+  <h3><span class="n">3</span>サポートメンバーを追加する</h3>
+  <p>右下の <span class="btn">＋ メンバーを追加</span> を押すと、所属者が顔写真付きで出ます。分類で絞り込み、手伝う人にチェックを付けて <span class="btn">○人を追加</span>。</p>
+  <p>外すときは、画面下の「メンバー一覧・外す」を開いて <b>外す</b> を押します（所属者の登録は消えません）。</p>
+</div><img src="guide/10_picker.jpg" alt=""></div>
+
+<div class="step"><div>
+  <h3><span class="n">4</span>現地に行く計画を入れる</h3>
+  <p>画面の一番上「現地に行く計画」の <span class="btn w">編集</span> から入力します。</p>
+  <ul>
+    <li><b>一緒に行くメンバー</b>：集合場所・集合時間</li>
+    <li><b>現地集合メンバー</b>：待ち合わせ時間（場所は任意）</li>
+    <li><b>メンバーの振り分け</b>：1人ずつ「一緒に／現地／未定」をタップ</li>
+  </ul>
+</div><img src="guide/11_plan.jpg" alt=""></div>
+
+<div class="step"><div>
+  <h3><span class="n">5</span>役割を割り当てる</h3>
+  <p><b>共通事項</b>（リーダー・会場設営など試合全体で1つ）と、<b>各試合の選手ごと</b>（タイムキーパー・水バケツなど）に分かれています。</p>
+  <p>各役割の右の <span class="btn w">選ぶ</span> を押し、担当する人にチェックを付けて <span class="btn">決定</span>。</p>
+  <p>共通事項の「リーダー」になった人は、どの行でも名前が<b style="color:#c8231e">赤く</b>表示されます。</p>
+</div><img src="guide/07_support_top.jpg" alt=""></div>
+
+<div class="step"><div>
+  <h3><span class="n">6</span>確認項目にチェックする</h3>
+  <p>各試合の見出しのすぐ下に、チェックボックス付きの確認項目があります。終わったものをタップしてチェックします（その場で保存）。</p>
+  <p>「確認項目 3/5」のように進み具合が出て、全部終わると数字が緑になります。</p>
+</div><img src="guide/08_support_mid.jpg" alt=""></div>
+
+<div class="step"><div>
+  <h3><span class="n">7</span>項目を追加・名前を変える</h3>
+  <p>画面下の <span class="btn w">確認項目を編集</span>・<span class="btn w">役割の項目を編集</span> から、項目の追加・削除・並べ替え（↑）・名前の変更ができます。</p>
+  <p>名前を変えても、割り当て済みの人やチェックはそのまま残ります。</p>
+  <p class="note">項目は全試合で共通です。変えると他の試合の表示も変わります。</p>
+</div><img src="guide/13_roles.jpg" alt=""></div>
+
+<div class="box"><h4>困ったときは</h4>
+<table>
+<tr><th>「このリーダーIDは使えなくなっています」と出る</th><td>IDが削除・変更されています。管理者に新しいIDをもらってください</td></tr>
+<tr><th>合言葉の画面に戻ってしまった</th><td>合言葉が変更されました。管理者に新しい合言葉を聞いてください</td></tr>
+<tr><th>リーダーをやめたい</th><td>サポートメンバー画面の一番下「このスマホのリーダーをやめる」</td></tr>
+</table></div>
+</div>
+</body></html>
