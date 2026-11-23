@@ -123,6 +123,7 @@ p.lead{color:var(--muted);font-size:13px;margin:0 0 14px}
 .evseg em{font-style:normal;margin-left:5px;font-size:11px;opacity:.7}
 details.more summary{cursor:pointer;color:var(--muted);font-size:13px;margin:16px 2px 8px}
 /* manual */
+.hguide{font-size:12px;font-weight:700;color:#fff;text-decoration:none;border:1px solid #555;border-radius:99px;padding:3px 10px}
 .guide-btn{display:block;margin:18px 0 0;padding:12px 14px;background:#141414;color:#fff;border-radius:14px;text-decoration:none;font-weight:900;font-size:15px}
 .guide-btn small{display:block;font-weight:400;font-size:12px;color:#bbb;margin-top:2px}
 .mjump{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
@@ -177,7 +178,7 @@ label.f textarea{min-height:90px;resize:vertical}
 <body>
 <header class="top">
   <div class="wrap">
-    <div class="brand"><h1>松田ジム</h1><span class="badge" id="adminBadge" hidden>管理者</span><span class="grow"></span></div>
+    <div class="brand"><h1>松田ジム</h1><span class="badge" id="adminBadge" hidden>管理者</span><a class="hguide" href="manual.pdf?v=2" target="_blank" rel="noopener">📘 使い方</a><span class="grow"></span></div>
     <nav class="tabs" id="tabs"></nav>
   </div>
 </header>
@@ -884,8 +885,7 @@ function manualBody(text){
 }
 function viewManual(){
   const secs = state.manual || DEFAULT_MANUAL;
-  let h = `<a class="guide-btn" href="manual.pdf?v=2" target="_blank" rel="noopener">📘 アプリの使い方マニュアル（PDF）<small>登録のしかた・リーダーになったら</small></a>
-    <h2 class="sec">試合サポートの手順書</h2><p class="lead">試合前から試合後までの流れ</p>`;
+  let h = `<h2 class="sec">試合サポートの手順書</h2><p class="lead">試合前から試合後までの流れ</p>`;
   h += `<div class="mjump">${secs.map((s,i)=>`<a href="#msec${i}" data-act="mjump" data-i="${i}"><b>${i+1}</b>${esc(s.title)}</a>`).join("")}</div><div class="list manual">`;
   h += secs.map((s,i)=>`<div class="card" id="msec${i}"><div class="mhead"><span class="no">${i+1}</span><h3>${esc(s.title)}</h3></div><div class="mbody">${manualBody(s.body)}</div>
     ${state.isAdmin?`<div class="admin-actions" style="padding:0 12px 12px;margin-top:0">${i>0?`<button class="btn sm" data-act="manual-up" data-i="${i}">↑</button>`:""}<button class="btn sm" data-act="manual-edit" data-i="${i}">編集</button><button class="btn sm danger" data-act="manual-del" data-i="${i}">削除</button></div>`:""}</div>`).join("");
