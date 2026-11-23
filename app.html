@@ -79,6 +79,15 @@
   .slot.taken{background:rgba(200,16,46,.78)}
   .slot.taken span{border-color:#fff;color:var(--accent)}
   .timg .fixed{position:absolute;transform:translate(-50%,-50%);border-radius:50%}
+  .links.sm{margin-top:6px;flex-wrap:wrap;gap:6px}
+  .links.sm a{font-size:11px;padding:3px 8px}
+  .links{flex-wrap:wrap}
+  .unpaidall{margin-top:10px;border-radius:10px;background:var(--accent-soft);padding:8px 12px}
+  .unpaidall summary{color:var(--accent);font-weight:700;font-size:13px;cursor:pointer}
+  .ua-ev{font-size:12px;font-weight:700;margin-top:8px;display:flex;justify-content:space-between;gap:8px}
+  .ua-ev span{font-weight:400;color:var(--sub)}
+  .ua-row{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:5px 0;border-bottom:1px dashed #f0c9cf;cursor:pointer}
+  .ua-row span{display:flex;align-items:center;gap:4px;min-width:0}
   .slotsum{margin-top:8px;font-size:12px;color:var(--sub)}.slotsum b{color:var(--ink)}
   .slotlist{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px}
   .slotlist>div{display:flex;align-items:center;gap:6px;font-size:13px;padding:6px 8px;border-radius:8px;background:var(--bg);color:var(--sub);cursor:pointer;min-width:0}
@@ -679,7 +688,7 @@ function trunksCard(eid){
     <div class="trunks">${trunksSide('front', eid)}${trunksSide('back', eid)}</div>
     <div class="slotlist">${SLOTS.map(z => { const o = slotOwner(eid, z.n);
       return `<div class="${o ? 'on' : ''}" onclick="${o ? `openSponsor('${esc(o.id)}')` : `openSponsor('', ${z.n})`}"><b>${CIRC(z.n)}</b>
-        <span class="sl"><em>${slotName(z.n)}　${yen(slotPrice(z.n))}</em>${o ? esc(o.company) : '募集中'}</span></div>`; }).join('')}
+        <span class="sl"><em>${slotName(z.n)}　${yen(slotPrice(z.n))}</em>${o ? esc(spName(o)) : '募集中'}</span></div>`; }).join('')}
       <div class="fixedrow"><img src="${IMG_BASE}mbg.png" alt=""><span>${FIXED_PATCH.label}（${FIXED_PATCH.note}）</span></div>
     </div></div>`;
 }
@@ -688,7 +697,30 @@ function eventPicker(){
     .map(e => `<option value="${esc(e.id)}" ${e.id===S.eventId?'selected':''}>${esc(e.title)}（${fmtDate(e.date)}）</option>`).join('');
   return `<div class="evhead"><select class="evsel" onchange="S.eventId=this.value;render()">${opts}</select><span class="caret">▾</span></div>`;
 }
-const sponsorsOf = eid => S.sponsors.filter(x => x.eventId === eid).sort((a,b) => num(a.order) - num(b.order) || a.company.localeCompare(b.company, 'ja'));
+const spName = x => x.shop || x.company || '';
+const SOCIAL = [
+  ['website','ホームページ','🌐','https://…'], ['map','Googleマップ','📍','GoogleマップのURL'],
+  ['instagram','Instagram','📷','@アカウント名 または URL'], ['x','X（旧Twitter）','✖️','@アカウント名 または URL'],
+  ['facebook','Facebook','📘','URL'], ['tiktok','TikTok','🎵','@アカウント名 または URL'],
+  ['youtube','YouTube','▶️','URL'], ['line','LINE公式','💬','URL または @ID'],
+];
+/* 入力された @名前 や URL を、開けるリンクに変える */
+function socialUrl(k, v){
+  v = String(v || '').trim(); if (!v) return '';
+  if (/^https?:\/\//i.test(v)) return v;
+  const h = v.replace(/^@/, '');
+  if (k === 'instagram') return 'https://www.instagram.com/' + h;
+  if (k === 'x') return 'https://x.com/' + h;
+  if (k === 'tiktok') return 'https://www.tiktok.com/@' + h;
+  if (k === 'line') return 'https://line.me/R/ti/p/' + encodeURIComponent('@' + h);
+  if (k === 'facebook') return 'https://www.facebook.com/' + h;
+  if (k === 'youtube') return 'https://www.youtube.com/@' + h;
+  if (k === 'map') return 'https://www.google.com/maps/search/' + encodeURIComponent(v);
+  return 'https://' + v;
+}
+const socialLinks = x => SOCIAL.filter(([k]) => x[k]).map(([k, label, ic]) =>
+  `<a href="${esc(socialUrl(k, x[k]))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${ic} ${label}</a>`).join('');
+const sponsorsOf = eid => S.sponsors.filter(x => x.eventId === eid).sort((a,b) => num(a.order) - num(b.order) || spName(a).localeCompare(spName(b), 'ja'));
 function viewSponsors(){
   if (!S.events.length) return `<div class="empty">まだ試合が登録されていません<br><br>
     <button class="btn" style="width:auto" onclick="S.tab='events';render();openEvent()">試合を追加する</button></div>`;
@@ -709,14 +741,16 @@ function viewSponsors(){
       <div class="stat"><div class="k">未入金</div><div class="v" style="color:${total-paid?'var(--accent)':'inherit'}">${yen(total-paid)}</div></div>
     </div>
     ${noLogo ? `<div class="muted" style="margin-top:10px;color:var(--accent)">ロゴ未受領が ${noLogo}社 あります</div>` : ''}
+    ${unpaidAllHTML()}
     ${!list.length && prev ? `<button class="btn ghost" style="margin-top:12px" onclick="copySponsors('${esc(prev.id)}')">「${esc(prev.title)}」のスポンサーをコピー</button>` : ''}
   </div>
   ${trunksCard(S.eventId)}
   ${list.length ? `<div class="list">${list.map(x => `
     <div class="row trow" onclick="openSponsor('${esc(x.id)}')">
       <div class="row-main">
-        <div class="nm">${esc(x.company)}${x.contact ? `<span class="hon">${esc(x.contact)}</span>` : ''}${num(x.slot) ? `<span class="seatno">${CIRC(num(x.slot))}</span>` : x.position ? `<span class="seatno">${esc(x.position)}</span>` : ''}</div>
-        <div class="meta"><span class="tag">${yen(num(x.amount))}</span>${x.memo ? '<span>📝</span>' : ''}</div>
+        <div class="nm">${esc(spName(x))}${x.shop && x.company ? `<span class="hon">${esc(x.company)}</span>` : ''}${num(x.slot) ? `<span class="seatno">${CIRC(num(x.slot))}</span>` : x.position ? `<span class="seatno">${esc(x.position)}</span>` : ''}</div>
+        <div class="meta"><span class="tag">${yen(num(x.amount))}</span>${x.president ? `<span>代表 ${esc(x.president)}</span>` : ''}${x.memo ? '<span>📝</span>' : ''}</div>
+        ${SOCIAL.some(([k]) => x[k]) ? `<div class="links sm">${socialLinks(x)}</div>` : ''}
         <div class="pills" onclick="event.stopPropagation()">
           <button class="pill ${PILL2[x.logo]}" onclick="toggleSp('${esc(x.id)}','logo')">ロゴ${x.logo}</button>
           <button class="pill ${PILL2[x.paid]}" onclick="toggleSp('${esc(x.id)}','paid')">${x.paid}</button>
@@ -724,6 +758,20 @@ function viewSponsors(){
       </div>
     </div>`).join('')}</div>`
   : '<div class="empty">この試合のスポンサーはまだいません<br>右下の＋から追加できます</div>'}`;
+}
+/* 全試合の未入金スポンサー（試合ごと） */
+function unpaidAllHTML(){
+  const rows = S.sponsors.filter(x => x.paid !== '入金済')
+    .map(x => ({ x, e: S.events.find(e => e.id === x.eventId) })).filter(r => r.e)
+    .sort((a, b) => a.e.date.localeCompare(b.e.date));
+  if (!rows.length) return '<div class="muted" style="margin-top:10px">全試合のスポンサー料は入金済です</div>';
+  const total = rows.reduce((t, r) => t + num(r.x.amount), 0);
+  const byEv = {}; rows.forEach(r => (byEv[r.e.id] = byEv[r.e.id] || { e: r.e, list: [] }).list.push(r.x));
+  return `<details class="unpaidall"><summary>全試合の未入金 ${rows.length}件・${yen(total)}</summary>
+    ${Object.values(byEv).map(({ e, list }) => `<div class="ua-ev">${esc(e.title)}<span>${fmtDate(e.date)}</span></div>
+      ${list.map(x => `<div class="ua-row" onclick="S.eventId='${esc(e.id)}';render();openSponsor('${esc(x.id)}')">
+        <span>${num(x.slot) ? CIRC(num(x.slot)) : ''} ${esc(spName(x))}</span><b>${yen(num(x.amount))}</b></div>`).join('')}`).join('')}
+  </details>`;
 }
 function toggleSp(id, field){
   const x = S.sponsors.find(s => s.id === id); if (!x) return;
@@ -735,26 +783,37 @@ function toggleSp(id, field){
 let SP = null;
 function openSponsor(id, presetSlot){
   const x = S.sponsors.find(s => s.id === id);
-  SP = x ? { ...x } : { id:'', eventId:S.eventId, company:'', contact:'', phone:'', email:'', amount: presetSlot ? String(slotPrice(presetSlot)) : '', position:'', slot: presetSlot ? String(presetSlot) : '', logo:'未受領', paid:'未入金', memo:'' };
+  SP = x ? { ...x } : { id:'', eventId:S.eventId, company:'', shop:'', president:'', contact:'', phone:'', email:'', amount: presetSlot ? String(slotPrice(presetSlot)) : '', position:'', slot: presetSlot ? String(presetSlot) : '', logo:'未受領', paid:'未入金', memo:'' };
   // 過去に登録した会社名を候補に
   const known = [...new Set(S.sponsors.map(s => s.company).filter(Boolean))];
+  const knownShop = [...new Set(S.sponsors.map(s => s.shop).filter(Boolean))];
   const f = (k, label, attrs='') => `<div class="f"><label class="fl">${label}</label><input class="inp" id="sp_${k}" value="${esc(SP[k])}" ${attrs}></div>`;
   const seg = (field, list) => `<div class="seg">${list.map(v =>
     `<button class="opt ${SP[field]===v?'on':''}" onclick="SP.${field}='${v}';this.parentNode.querySelectorAll('.opt').forEach(b=>b.classList.toggle('on',b===this))">${v}</button>`).join('')}</div>`;
   openSheet(`
     <h2>${x ? 'スポンサーを編集' : 'スポンサーを追加'}</h2>
     <div class="muted">${esc((S.events.find(e => e.id === SP.eventId) || {}).title || '')}</div>
-    ${f('company', '会社名・お店の名前 *', 'list="splist" onchange="fillSponsor(this.value)"')}
+    <div class="muted" style="margin-top:6px">会社名かお店の名前の、どちらかは入力してください</div>
+    <div class="two">${f('company', '会社名', 'list="splist" placeholder="例：株式会社〇〇" onchange="fillSponsor(\'company\',this.value)"')}
+      ${f('shop', 'お店の名前', 'list="shoplist" placeholder="例：ラーメン〇〇" onchange="fillSponsor(\'shop\',this.value)"')}</div>
     <datalist id="splist">${known.map(k => `<option value="${esc(k)}">`).join('')}</datalist>
-    <div class="two">${f('contact', '担当者')}${f('amount', '協賛金額（円）', 'inputmode="numeric"')}</div>
-    <div class="two">${f('phone', '電話番号', 'type="tel" inputmode="tel"')}${f('email', 'メール', 'type="email"')}</div>
+    <datalist id="shoplist">${knownShop.map(k => `<option value="${esc(k)}">`).join('')}</datalist>
+    <div class="two">${f('president', '社長名（代表者）')}${f('contact', '担当者')}</div>
+    <div class="two">${f('amount', '協賛金額（円）', 'inputmode="numeric"')}${f('phone', '電話番号', 'type="tel" inputmode="tel"')}</div>
+    ${f('email', 'メール', 'type="email"')}
     <div class="sec"><label>ワッペンの番号（トランクス）</label>
       <div class="slotpick">${SLOTS.map(z => { const o = slotOwner(SP.eventId, z.n); const mine = num(SP.slot) === z.n;
         const busy = o && o.id !== SP.id;
-        return `<button class="opt ${mine ? 'on' : ''}" ${busy ? 'disabled title="' + esc(o.company) + '"' : ''}
+        return `<button class="opt ${mine ? 'on' : ''}" ${busy ? 'disabled title="' + esc(spName(o)) + '"' : ''}
           onclick="pickSlot(this, ${z.n})">${CIRC(z.n)}<small>${yen(slotPrice(z.n)).replace(',000','千')}</small></button>`; }).join('')}</div>
       <div class="muted" id="slotinfo" style="margin-top:6px">${num(SP.slot) ? `${CIRC(num(SP.slot))} ${slotName(num(SP.slot))}：${yen(slotPrice(num(SP.slot)))}（1試合・税込）` : ''}</div>
       <div class="muted" style="margin-top:4px">グレーの番号は、ほかのスポンサーが使っています</div></div>
+    <div class="sec"><label>ホームページ・地図・SNS（宣伝用）</label>
+      ${SOCIAL.map(([k, label, ic, ph]) => `<div class="f" style="margin-top:8px"><label class="fl">${ic} ${label}</label>
+        <input class="inp" id="sp_${k}" value="${esc(SP[k])}" placeholder="${ph}" autocapitalize="off" autocorrect="off" spellcheck="false"></div>`).join('')}
+      ${SOCIAL.some(([k]) => SP[k]) ? `<div class="links" style="flex-wrap:wrap">${socialLinks(SP)}</div>` : ''}
+    </div>
+    ${sponsorHistory(SP)}
     <div class="sec"><label>ロゴデータ</label>${seg('logo', LOGO)}</div>
     <div class="sec"><label>入金</label>${seg('paid', PAID)}</div>
     <div class="f"><label class="fl">メモ</label><textarea class="inp" id="sp_memo" placeholder="例：ロゴはAIデータで依頼中">${esc(SP.memo)}</textarea></div>
@@ -765,6 +824,34 @@ function openSponsor(id, presetSlot){
     </div>`);
 }
 /* 過去に登録した会社を選んだら、担当者・連絡先などを自動で入れる */
+/* 同じスポンサー（会社名・お店の名前が同じ）の、試合ごとの入金状況 */
+function sameSponsor(a, b){
+  return (a.company && a.company === b.company) || (a.shop && a.shop === b.shop);
+}
+function sponsorHistory(sp){
+  if (!sp.company && !sp.shop) return '';
+  const rows = S.sponsors.filter(x => sameSponsor(x, sp))
+    .map(x => ({ x, e: S.events.find(e => e.id === x.eventId) })).filter(r => r.e)
+    .sort((a, b) => b.e.date.localeCompare(a.e.date));
+  if (!rows.length) return '';
+  const unpaid = rows.filter(r => r.x.paid !== '入金済');
+  const sumUnpaid = unpaid.reduce((t, r) => t + num(r.x.amount), 0);
+  return `<div class="sec"><label>試合ごとの入金状況</label>
+    ${unpaid.length ? `<div class="muted" style="color:var(--accent);margin-bottom:6px">未入金 ${unpaid.length}試合・${yen(sumUnpaid)}</div>` : '<div class="muted" style="margin-bottom:6px">すべて入金済です</div>'}
+    <div class="hist">${rows.map(({ x, e }) => `
+      <div class="hrow">
+        <div style="min-width:0"><div class="htitle">${esc(e.title)}</div>
+          <div class="hmeta">${fmtDate(e.date)}　${num(x.slot) ? CIRC(num(x.slot)) + ' ' : ''}${yen(num(x.amount))}</div></div>
+        <button class="pill ${PILL2[x.paid]}" style="min-width:70px" onclick="toggleSpHist('${esc(x.id)}', this)">${x.paid}</button>
+      </div>`).join('')}</div></div>`;
+}
+function toggleSpHist(id, btn){
+  const x = S.sponsors.find(s => s.id === id); if (!x) return;
+  x.paid = x.paid === '入金済' ? '未入金' : '入金済';
+  if (SP && SP.id === id) SP.paid = x.paid;
+  btn.textContent = x.paid; btn.className = 'pill ' + PILL2[x.paid];
+  batch([{ op:'upsert', key:'sponsors', obj: { id, paid: x.paid } }]).catch(fail);
+}
 function pickSlot(btn, n){
   const prev = num(SP.slot);
   SP.slot = prev === n ? '' : String(n);
@@ -775,15 +862,15 @@ function pickSlot(btn, n){
   if (!SP.slot && prev && cur === slotPrice(prev)) amt.value = '';
   $('#slotinfo').innerHTML = SP.slot ? `${CIRC(n)} ${slotName(n)}：${yen(slotPrice(n))}（1試合・税込）` : '';
 }
-function fillSponsor(name){
-  const last = [...S.sponsors].reverse().find(s => s.company === name);
+function fillSponsor(field, name){
+  const last = [...S.sponsors].reverse().find(s => s[field] === name);
   if (!last) return;
-  ['contact','phone','email','amount'].forEach(k => { const el = $('#sp_' + k); if (el && !el.value) el.value = last[k] || ''; });
+  ['company','shop','president','contact','phone','email', ...SOCIAL.map(z => z[0])].forEach(k => { const el = $('#sp_' + k); if (el && !el.value) el.value = last[k] || ''; });
 }
 function saveSponsor(){
-  ['company','contact','phone','email','amount','memo'].forEach(k => SP[k] = $('#sp_' + k).value.trim());
+  ['company','shop','president','contact','phone','email','amount','memo', ...SOCIAL.map(z => z[0])].forEach(k => SP[k] = $('#sp_' + k).value.trim());
   SP.amount = SP.amount.replace(/[^\d]/g, '');
-  if (!SP.company) { toast('会社名を入力してください'); return; }
+  if (!SP.company && !SP.shop) { toast('会社名かお店の名前を入力してください'); return; }
   const o = { ...SP }; if (!o.id) o.id = newId(); delete o.updatedAt;
   replaceLocal('sponsors', o); closeSheet(); render();
   batch([{ op:'upsert', key:'sponsors', obj: o }]).then(() => toast('保存しました')).catch(fail);
@@ -984,7 +1071,7 @@ function doPrint(){
 
 /* ========= シート（下から出るパネル） ========= */
 function openSheet(html){ $('#sheet').innerHTML = '<div class="grab"></div>' + html; $('#ov').classList.add('open'); $('#sheet').scrollTop = 0; }
-function closeSheet(){ $('#ov').classList.remove('open'); }
+function closeSheet(){ $('#ov').classList.remove('open'); if (S.tab === 'sponsors') render(); }
 $('#ov').addEventListener('click', e => { if (e.target.id === 'ov') closeSheet(); });
 function armDelete(btn, fn){
   if (btn.classList.contains('armed')) return fn();
