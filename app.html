@@ -69,6 +69,31 @@
   .seatsum .sq,.seatsum .sa{text-align:right}
   .seatsum .sa{font-weight:700}
   .seatsum .zero{color:var(--sub)}.seatsum .zero .sa{font-weight:400}
+  .trunks{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .tlabel{font-size:12px;font-weight:700;text-align:center;margin-bottom:4px}
+  .timg{position:relative}
+  .timg>img{display:block;width:100%;height:auto}
+  .slot{position:absolute;border:0;padding:0;background:rgba(205,205,205,.82);display:flex;align-items:center;justify-content:center}
+  .slot span{width:22px;height:22px;border-radius:50%;border:2px solid #2a37c9;color:#2a37c9;background:rgba(255,255,255,.85);
+    font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .slot.taken{background:rgba(200,16,46,.78)}
+  .slot.taken span{border-color:#fff;color:var(--accent)}
+  .timg .fixed{position:absolute;transform:translate(-50%,-50%);border-radius:50%}
+  .slotlist{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px}
+  .slotlist>div{display:flex;align-items:center;gap:6px;font-size:13px;padding:6px 8px;border-radius:8px;background:var(--bg);color:var(--sub);cursor:pointer;min-width:0}
+  .slotlist>div span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cn{font-style:normal;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;
+    border:2px solid currentColor;font-size:11px;font-weight:800;line-height:1;flex:none}
+  .slotlist>div b{color:#2a37c9;display:flex}
+  .seatno .cn{width:18px;height:18px;font-size:10px;vertical-align:-3px}
+  .slotpick .opt .cn{width:28px;height:28px;font-size:13px}
+  .slotpick .opt{display:flex;align-items:center;justify-content:center}
+  .slotlist>div.on{background:var(--accent-soft);color:var(--ink);font-weight:600}
+  .slotlist>div.on b{color:var(--accent)}
+  .slotlist .fixedrow{grid-column:1/-1;cursor:default}
+  .slotlist .fixedrow img{width:22px;height:22px}
+  .slotpick{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+  .slotpick .opt{padding:7px 0}
   .mine{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px;padding:10px 12px;border-radius:10px;
     background:var(--accent-soft);color:var(--accent)}
   .mine .k{font-size:11px;font-weight:600}
@@ -622,6 +647,30 @@ function removeCustomer(id){
 const LOGO = ['未受領','受領済'];
 const POSITIONS = ['ベルト（前）','ベルト（後ろ）','右脚（前）','左脚（前）','右脚（後ろ）','左脚（後ろ）','裾（右）','裾（左）'];
 const PILL2 = { '未受領':'s6', '受領済':'s3', '未入金':'s6', '入金済':'s4' };
+// トランクスのワッペン枠（画像に対する％：中心x,y・幅w・高さh・傾きr）
+const IMG_BASE = IS_GAS ? 'https://raw.githubusercontent.com/simagonz3150-sys/boxing-app/main/img/' : 'img/';
+const SLOTS = [{"n": 1, "side": "front", "x": 50.3, "y": 10.9, "w": 60.0, "h": 12.9, "r": 0}, {"n": 2, "side": "front", "x": 29.7, "y": 50.4, "w": 27.0, "h": 11.9, "r": 5}, {"n": 3, "side": "front", "x": 26.4, "y": 63.7, "w": 27.0, "h": 12.9, "r": 5}, {"n": 4, "side": "front", "x": 75.5, "y": 51.2, "w": 27.7, "h": 12.9, "r": -6}, {"n": 5, "side": "front", "x": 75.5, "y": 65.7, "w": 29.0, "h": 12.9, "r": -6}, {"n": 6, "side": "front", "x": 76.4, "y": 80.6, "w": 29.7, "h": 13.0, "r": -6}, {"n": 7, "side": "back", "x": 49.6, "y": 34.8, "w": 54.3, "h": 24.2, "r": 0}, {"n": 8, "side": "back", "x": 25.7, "y": 62.3, "w": 28.4, "h": 11.9, "r": 5}, {"n": 9, "side": "back", "x": 22.7, "y": 79.1, "w": 29.3, "h": 14.5, "r": 5}, {"n": 10, "side": "back", "x": 74.0, "y": 63.0, "w": 27.8, "h": 13.2, "r": -6}, {"n": 11, "side": "back", "x": 74.2, "y": 79.4, "w": 28.7, "h": 14.5, "r": -6}];
+const FIXED_PATCH = { label: 'MBG', note: '付いているワッペン', ...({"x": 14.6, "y": 76.8, "d": 14.5}) };
+const CIRC = n => `<i class="cn">${n}</i>`;
+const slotOwner = (eid, n) => S.sponsors.find(x => x.eventId === eid && num(x.slot) === n);
+function trunksSide(side, eid){
+  return `<div class="trunk"><div class="tlabel">${side === 'front' ? '表面' : '裏面'}</div><div class="timg">
+    <img src="${IMG_BASE}trunks_${side}.jpg" alt="">
+    ${SLOTS.filter(z => z.side === side).map(z => { const o = slotOwner(eid, z.n);
+      return `<button class="slot ${o ? 'taken' : ''}" style="left:${z.x}%;top:${z.y}%;width:${z.w}%;height:${z.h}%;transform:translate(-50%,-50%) rotate(${z.r}deg)"
+        onclick="${o ? `openSponsor('${esc(o.id)}')` : `openSponsor('', ${z.n})`}"><span>${z.n}</span></button>`; }).join('')}
+    ${side === 'front' ? `<img class="fixed" src="${IMG_BASE}mbg.png" alt="MBG" style="left:${FIXED_PATCH.x}%;top:${FIXED_PATCH.y}%;width:${FIXED_PATCH.d}%">` : ''}
+  </div></div>`;
+}
+function trunksCard(eid){
+  return `<div class="card"><div class="nm">トランクスのワッペン</div>
+    <div class="muted" style="margin-top:2px">番号をタップすると、その枠のスポンサーを登録・確認できます</div>
+    <div class="trunks">${trunksSide('front', eid)}${trunksSide('back', eid)}</div>
+    <div class="slotlist">${SLOTS.map(z => { const o = slotOwner(eid, z.n);
+      return `<div class="${o ? 'on' : ''}" onclick="${o ? `openSponsor('${esc(o.id)}')` : `openSponsor('', ${z.n})`}"><b>${CIRC(z.n)}</b><span>${o ? esc(o.company) : '募集中'}</span></div>`; }).join('')}
+      <div class="fixedrow"><img src="${IMG_BASE}mbg.png" alt=""><span>${FIXED_PATCH.label}（${FIXED_PATCH.note}）</span></div>
+    </div></div>`;
+}
 function eventPicker(){
   const opts = [...S.events].sort((a,b) => b.date.localeCompare(a.date))
     .map(e => `<option value="${esc(e.id)}" ${e.id===S.eventId?'selected':''}>${esc(e.title)}（${fmtDate(e.date)}）</option>`).join('');
@@ -650,10 +699,11 @@ function viewSponsors(){
     ${noLogo ? `<div class="muted" style="margin-top:10px;color:var(--accent)">ロゴ未受領が ${noLogo}社 あります</div>` : ''}
     ${!list.length && prev ? `<button class="btn ghost" style="margin-top:12px" onclick="copySponsors('${esc(prev.id)}')">「${esc(prev.title)}」のスポンサーをコピー</button>` : ''}
   </div>
+  ${trunksCard(S.eventId)}
   ${list.length ? `<div class="list">${list.map(x => `
     <div class="row trow" onclick="openSponsor('${esc(x.id)}')">
       <div class="row-main">
-        <div class="nm">${esc(x.company)}${x.contact ? `<span class="hon">${esc(x.contact)}</span>` : ''}${x.position ? `<span class="seatno">${esc(x.position)}</span>` : ''}</div>
+        <div class="nm">${esc(x.company)}${x.contact ? `<span class="hon">${esc(x.contact)}</span>` : ''}${num(x.slot) ? `<span class="seatno">${CIRC(num(x.slot))}</span>` : x.position ? `<span class="seatno">${esc(x.position)}</span>` : ''}</div>
         <div class="meta"><span class="tag">${yen(num(x.amount))}</span>${x.memo ? '<span>📝</span>' : ''}</div>
         <div class="pills" onclick="event.stopPropagation()">
           <button class="pill ${PILL2[x.logo]}" onclick="toggleSp('${esc(x.id)}','logo')">ロゴ${x.logo}</button>
@@ -671,9 +721,9 @@ function toggleSp(id, field){
   batch([{ op:'upsert', key:'sponsors', obj: { id: x.id, [field]: x[field] } }]).catch(fail);
 }
 let SP = null;
-function openSponsor(id){
+function openSponsor(id, presetSlot){
   const x = S.sponsors.find(s => s.id === id);
-  SP = x ? { ...x } : { id:'', eventId:S.eventId, company:'', contact:'', phone:'', email:'', amount:'', position:'', logo:'未受領', paid:'未入金', memo:'' };
+  SP = x ? { ...x } : { id:'', eventId:S.eventId, company:'', contact:'', phone:'', email:'', amount:'', position:'', slot: presetSlot ? String(presetSlot) : '', logo:'未受領', paid:'未入金', memo:'' };
   // 過去に登録した会社名を候補に
   const known = [...new Set(S.sponsors.map(s => s.company).filter(Boolean))];
   const f = (k, label, attrs='') => `<div class="f"><label class="fl">${label}</label><input class="inp" id="sp_${k}" value="${esc(SP[k])}" ${attrs}></div>`;
@@ -686,8 +736,12 @@ function openSponsor(id){
     <datalist id="splist">${known.map(k => `<option value="${esc(k)}">`).join('')}</datalist>
     <div class="two">${f('contact', '担当者')}${f('amount', '協賛金額（円）', 'inputmode="numeric"')}</div>
     <div class="two">${f('phone', '電話番号', 'type="tel" inputmode="tel"')}${f('email', 'メール', 'type="email"')}</div>
-    ${f('position', 'ロゴの位置（トランクス）', 'list="poslist" placeholder="例：ベルト（前）"')}
-    <datalist id="poslist">${POSITIONS.map(p => `<option value="${p}">`).join('')}</datalist>
+    <div class="sec"><label>ワッペンの番号（トランクス）</label>
+      <div class="slotpick">${SLOTS.map(z => { const o = slotOwner(SP.eventId, z.n); const mine = num(SP.slot) === z.n;
+        const busy = o && o.id !== SP.id;
+        return `<button class="opt ${mine ? 'on' : ''}" ${busy ? 'disabled title="' + esc(o.company) + '"' : ''}
+          onclick="SP.slot=SP.slot==='${z.n}'?'':'${z.n}';this.parentNode.querySelectorAll('.opt').forEach(b=>b.classList.toggle('on',b===this&&SP.slot!==''))">${CIRC(z.n)}</button>`; }).join('')}</div>
+      <div class="muted" style="margin-top:4px">グレーの番号は、ほかのスポンサーが使っています</div></div>
     <div class="sec"><label>ロゴデータ</label>${seg('logo', LOGO)}</div>
     <div class="sec"><label>入金</label>${seg('paid', PAID)}</div>
     <div class="f"><label class="fl">メモ</label><textarea class="inp" id="sp_memo" placeholder="例：ロゴはAIデータで依頼中">${esc(SP.memo)}</textarea></div>
@@ -701,10 +755,10 @@ function openSponsor(id){
 function fillSponsor(name){
   const last = [...S.sponsors].reverse().find(s => s.company === name);
   if (!last) return;
-  ['contact','phone','email','amount','position'].forEach(k => { const el = $('#sp_' + k); if (el && !el.value) el.value = last[k] || ''; });
+  ['contact','phone','email','amount'].forEach(k => { const el = $('#sp_' + k); if (el && !el.value) el.value = last[k] || ''; });
 }
 function saveSponsor(){
-  ['company','contact','phone','email','amount','position','memo'].forEach(k => SP[k] = $('#sp_' + k).value.trim());
+  ['company','contact','phone','email','amount','memo'].forEach(k => SP[k] = $('#sp_' + k).value.trim());
   SP.amount = SP.amount.replace(/[^\d]/g, '');
   if (!SP.company) { toast('会社名を入力してください'); return; }
   const o = { ...SP }; if (!o.id) o.id = newId(); delete o.updatedAt;
