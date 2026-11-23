@@ -123,7 +123,7 @@ p.lead{color:var(--muted);font-size:13px;margin:0 0 14px}
 .evseg em{font-style:normal;margin-left:5px;font-size:11px;opacity:.7}
 details.more summary{cursor:pointer;color:var(--muted);font-size:13px;margin:16px 2px 8px}
 /* manual */
-.hguide{font-size:12px;font-weight:700;color:#fff;text-decoration:none;border:1px solid #555;border-radius:99px;padding:3px 10px}
+.hguide{margin-left:4px;font-size:12px;font-weight:700;color:#fff;text-decoration:none;border:1px solid #555;border-radius:99px;padding:3px 10px}
 .guide-btn{display:block;margin:18px 0 0;padding:12px 14px;background:#141414;color:#fff;border-radius:14px;text-decoration:none;font-weight:900;font-size:15px}
 .guide-btn small{display:block;font-weight:400;font-size:12px;color:#bbb;margin-top:2px}
 .mjump{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
@@ -178,7 +178,7 @@ label.f textarea{min-height:90px;resize:vertical}
 <body>
 <header class="top">
   <div class="wrap">
-    <div class="brand"><h1>松田ジム</h1><span class="badge" id="adminBadge" hidden>管理者</span><a class="hguide" href="guide.html?v=1">📘 使い方</a><span class="grow"></span></div>
+    <div class="brand"><h1>松田ジム</h1><span class="badge" id="adminBadge" hidden>管理者</span><a class="hguide" href="guide.html?v=1">📘 使い方</a><a class="hguide" href="guide-kids.html?v=1">🔰 こども用</a><span class="grow"></span></div>
     <nav class="tabs" id="tabs"></nav>
   </div>
 </header>
@@ -411,7 +411,7 @@ function render(){
       <input id="gCode" maxlength="30" autocomplete="off" autocapitalize="characters" placeholder="合言葉">
       <div class="err" id="gErr"></div>
       <button class="btn primary" id="gGo" style="width:100%;padding:13px">開く</button>
-      <a href="guide.html?v=1" style="display:inline-block;margin-top:16px;font-size:13px;color:var(--muted)">📘 使い方マニュアル（PDF）</a></div>`;
+      <a href="guide.html?v=1" style="display:inline-block;margin-top:16px;font-size:13px;color:var(--muted)">📘 使い方マニュアル</a><br><a href="guide-kids.html?v=1" style="display:inline-block;margin-top:8px;font-size:13px;color:var(--muted)">🔰 小学生・中学生用のつかいかた</a></div>`;
     if(state.access==="gate"){ const go = async ()=>{
         const code = normCode($("#gCode").value);
         if(code.length<4){ $("#gErr").textContent="合言葉を入れてください"; return; }
