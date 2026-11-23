@@ -88,6 +88,36 @@
   .ua-ev span{font-weight:400;color:var(--sub)}
   .ua-row{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:5px 0;border-bottom:1px dashed #f0c9cf;cursor:pointer}
   .ua-row span{display:flex;align-items:center;gap:4px;min-width:0}
+  .cal{padding:12px 10px}
+  .calhead{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+  .calt{font-size:18px;font-weight:800;flex:1;text-align:center}
+  .calnav{border:0;background:var(--bg);width:40px;height:36px;border-radius:10px;font-size:22px;line-height:1}
+  .caltoday{border:1px solid var(--line);background:#fff;border-radius:10px;padding:7px 10px;font-size:12px;font-weight:600}
+  .cgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px}
+  .wd{text-align:center;font-size:11px;color:var(--sub);padding:2px 0 4px}
+  .sun{color:#d33}.sat{color:#2563eb}
+  .cday{border:0;background:#fff;border-radius:8px;min-height:58px;padding:3px 2px;display:flex;flex-direction:column;align-items:center;gap:2px;overflow:hidden}
+  .cday .dn{font-size:13px;font-weight:600;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:50%}
+  .cday.out{opacity:.35}
+  .cday.today .dn{background:var(--ink);color:#fff}
+  .cday.sel{background:var(--accent-soft);outline:2px solid var(--accent)}
+  .cday .dots{display:flex;gap:2px}.cday .dots i{width:6px;height:6px;border-radius:50%}
+  .cday .dt{font-size:9px;line-height:1.2;color:var(--ink);width:100%;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;font-size:11px;color:var(--sub)}
+  .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px}
+  .secttl{display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:14px;margin:16px 4px 6px}
+  .mini{border:0;background:var(--ink);color:#fff;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600}
+  .plan{gap:10px;position:relative;align-items:center}
+  .pbar{width:4px;align-self:stretch;border-radius:2px;flex:none}
+  .ptype{font-weight:700;font-size:11px}
+  .pleft{flex:none;font-size:12px;font-weight:700;color:var(--sub)}
+  .pchk{flex:none;width:34px;height:34px;border-radius:50%;border:2px solid var(--line);background:#fff;color:transparent;font-weight:800}
+  .pchk.on{background:var(--st3);border-color:var(--st3);color:#fff}
+  .plan.done .nm{text-decoration:line-through;color:var(--sub)}
+  .ptypes{display:flex;flex-wrap:wrap;gap:6px}
+  .ptypes .opt{flex:1 1 30%;border-color:var(--pc)}
+  .ptypes .opt.on{background:var(--pc);border-color:var(--pc)}
+  nav button{font-size:10px}
   .slotsum{margin-top:8px;font-size:12px;color:var(--sub)}.slotsum b{color:var(--ink)}
   .slotlist{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px}
   .slotlist>div{display:flex;align-items:center;gap:6px;font-size:13px;padding:6px 8px;border-radius:8px;background:var(--bg);color:var(--sub);cursor:pointer;min-width:0}
@@ -228,6 +258,7 @@
   <button data-tab="customers"><span class="ic">👥</span>顧客</button>
   <button data-tab="sponsors"><span class="ic">🩳</span>スポンサー</button>
   <button data-tab="events"><span class="ic">🥊</span>試合</button>
+  <button data-tab="schedule"><span class="ic">📅</span>予定</button>
 </nav>
 <div id="fab"></div>
 <div class="ov" id="ov"><div class="sheet" id="sheet"></div></div>
@@ -265,6 +296,11 @@ const Demo = (() => {
     ],
     tickets: [],
     seats: Object.entries(price).map(([name, p], i) => ({ id:'s'+i, name, price:String(p) })),
+    schedule: [
+      { id:'pl1', date:'2026-11-30', time:'', title:'チケット申込の締切', type:'チケット締切', eventId:'e1', memo:'ジムに枚数を連絡', done:'' },
+      { id:'pl2', date:'2026-12-10', time:'18:00', title:'チケット代をジムに支払い', type:'チケット支払い', eventId:'e1', memo:'', done:'' },
+      { id:'pl3', date:'2026-12-19', time:'13:00', title:'前日計量', type:'計量', eventId:'e1', memo:'', done:'' },
+    ],
     sponsors: [
       { id:'sp1', eventId:'e1', company:'株式会社サンプル建設', contact:'佐藤', phone:'052-000-0000', amount:'50000', position:'ベルト（前）', logo:'受領済', paid:'入金済', memo:'' },
       { id:'sp2', eventId:'e1', company:'〇〇整骨院', contact:'鈴木院長', phone:'', amount:'30000', position:'右脚（前）', logo:'未受領', paid:'未入金', memo:'ロゴはAIデータで依頼中' },
@@ -291,7 +327,7 @@ const Demo = (() => {
 })();
 
 /* ========= 状態 ========= */
-const S = { customers:[], events:[], tickets:[], seats:[], sponsors:[], statuses:[],
+const S = { customers:[], events:[], tickets:[], seats:[], sponsors:[], schedule:[], calMonth:'', calSel:'', statuses:[],
   tab:'tickets', eventId:null, tq:'', tfilter:'all', cq:'', cgroup:'all' };
 
 /* ========= ユーティリティ ========= */
@@ -321,10 +357,11 @@ function fail(e){ toast('保存に失敗しました：' + (e && e.message || e)
 /* ========= 読み込み ========= */
 async function load(){
   try {
-    const d = await getAll(['customers', 'events', 'tickets', 'seats', 'sponsors']);
+    const d = await getAll(['customers', 'events', 'tickets', 'seats', 'sponsors', 'schedule']);
     Object.assign(S, { customers: d.customers, events: d.events, tickets: d.tickets.map(normTicket), statuses: STATUSES,
       seats: d.seats.map(x => ({ ...x, price: num(x.price), order: num(x.order) })),
-      sponsors: d.sponsors.map(x => ({ ...x, logo: x.logo || '未受領', paid: x.paid || '未入金' })) });
+      sponsors: d.sponsors.map(x => ({ ...x, logo: x.logo || '未受領', paid: x.paid || '未入金' })),
+      schedule: d.schedule });
     if (!S.events.find(e => e.id === S.eventId)) S.eventId = defaultEvent();
     render();
   } catch (e) { $('#main').innerHTML = `<div class="empty">読み込みに失敗しました<br><small>${esc(e.message||e)}</small></div>`; }
@@ -340,11 +377,12 @@ function defaultEvent(){
 function render(){
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab));
   $('#demo').outerHTML = IS_GAS ? '<span id="demo"></span>' : '<span id="demo" class="demo">プレビュー（架空データ）</span>';
-  const v = { tickets: viewTickets, customers: viewCustomers, sponsors: viewSponsors, events: viewEvents }[S.tab];
+  const v = { tickets: viewTickets, customers: viewCustomers, sponsors: viewSponsors, events: viewEvents, schedule: viewSchedule }[S.tab];
   $('#main').innerHTML = v();
   $('#fab').innerHTML = S.tab === 'customers' ? '<button class="fab" onclick="openCustomer()">＋</button>'
                       : S.tab === 'events'    ? '<button class="fab" onclick="openEvent()">＋</button>'
-                      : S.tab === 'sponsors' && S.events.length ? '<button class="fab" onclick="openSponsor()">＋</button>' : '';
+                      : S.tab === 'sponsors' && S.events.length ? '<button class="fab" onclick="openSponsor()">＋</button>'
+                      : S.tab === 'schedule' ? '<button class="fab" onclick="openPlan()">＋</button>' : '';
   if (S.tab === 'tickets') renderTicketList();
   if (S.tab === 'customers') renderCustList();
 }
@@ -884,6 +922,133 @@ function copySponsors(fromId){
   list.forEach(o => { delete o.updatedAt; S.sponsors.push(o); });
   render();
   batch(list.map(o => ({ op:'upsert', key:'sponsors', obj: o }))).then(() => toast(`${list.length}社をコピーしました`)).catch(fail);
+}
+
+/* ---- 予定カレンダー ---- */
+// 種類と色（「試合」は試合タブから自動で表示）
+const PLAN_TYPES = [
+  ['チケット締切', '#d97706'], ['チケット支払い', '#2563eb'], ['計量', '#7c3aed'],
+  ['スポンサー', '#15803d'], ['練習・その他', '#6e6e73'],
+];
+const planColor = t => t === '試合' ? 'var(--accent)' : ((PLAN_TYPES.find(p => p[0] === t) || [, '#6e6e73'])[1]);
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const todayYmd = () => ymd(new Date());
+const WD = ['日','月','火','水','木','金','土'];
+/* カレンダーに出すもの：自分で入れた予定 ＋ 試合（自動） */
+function allPlans(){
+  const fights = S.events.filter(e => e.date).map(e => ({ id: 'ev_' + e.id, date: e.date, time: '', title: e.title, type: '試合',
+    memo: e.venue || '', auto: true, eventId: e.id }));
+  return [...fights, ...S.schedule.map(p => ({ ...p }))]
+    .sort((a, b) => (a.date + (a.time || '99')).localeCompare(b.date + (b.time || '99')));
+}
+function daysLeft(date){
+  const d = Math.round((new Date(date + 'T00:00') - new Date(todayYmd() + 'T00:00')) / 86400000);
+  return d === 0 ? '今日' : d === 1 ? '明日' : d > 0 ? `あと${d}日` : `${-d}日前`;
+}
+function planRow(p){
+  const ev = p.eventId && !p.auto ? S.events.find(e => e.id === p.eventId) : null;
+  return `<div class="row plan ${p.done === '1' ? 'done' : ''}" onclick="${p.auto ? `S.tab='events';render();openEvent('${esc(p.eventId)}')` : `openPlan('${esc(p.id)}')`}">
+    <span class="pbar" style="background:${planColor(p.type)}"></span>
+    <div class="row-main">
+      <div class="meta" style="margin:0"><span class="ptype" style="color:${planColor(p.type)}">${esc(p.type)}</span>
+        <span>${fmtDate(p.date)}（${WD[new Date(p.date + 'T00:00').getDay()]}）${p.time ? ' ' + esc(p.time) : ''}</span></div>
+      <div class="nm" style="font-size:15px;margin-top:2px">${esc(p.title)}</div>
+      ${ev || p.memo ? `<div class="meta">${ev ? `<span class="tag">${esc(ev.title)}</span>` : ''}${p.memo ? `<span>${esc(p.memo)}</span>` : ''}</div>` : ''}
+    </div>
+    ${p.auto ? '' : `<button class="pchk ${p.done === '1' ? 'on' : ''}" onclick="event.stopPropagation();togglePlanDone('${esc(p.id)}')">✓</button>`}
+    ${p.done === '1' ? '' : `<span class="pleft">${daysLeft(p.date)}</span>`}
+  </div>`;
+}
+function viewSchedule(){
+  const today = todayYmd();
+  if (!S.calMonth) S.calMonth = today.slice(0, 7);
+  if (!S.calSel) S.calSel = today;
+  const [y, m] = S.calMonth.split('-').map(Number);
+  const first = new Date(y, m - 1, 1), start = new Date(y, m - 1, 1 - first.getDay());
+  const plans = allPlans();
+  const byDay = {}; plans.forEach(p => (byDay[p.date] = byDay[p.date] || []).push(p));
+  let cells = '';
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const k = ymd(d), list = byDay[k] || [];
+    if (i === 35 && d.getMonth() !== m - 1) break;
+    cells += `<button class="cday ${d.getMonth() !== m - 1 ? 'out' : ''} ${k === today ? 'today' : ''} ${k === S.calSel ? 'sel' : ''} ${d.getDay() === 0 ? 'sun' : d.getDay() === 6 ? 'sat' : ''}"
+      onclick="S.calSel='${k}';render()"><span class="dn">${d.getDate()}</span>
+      <span class="dots">${list.slice(0, 4).map(p => `<i style="background:${planColor(p.type)};${p.done === '1' ? 'opacity:.35' : ''}"></i>`).join('')}</span>
+      ${list.length ? `<span class="dt">${esc(list[0].type === '試合' ? '🥊' + list[0].title : list[0].title)}</span>` : ''}</button>`;
+  }
+  const selList = byDay[S.calSel] || [];
+  const upcoming = plans.filter(p => p.date >= today && p.done !== '1').slice(0, 12);
+  const sd = new Date(S.calSel + 'T00:00');
+  return `
+  <div class="card cal">
+    <div class="calhead">
+      <button class="calnav" onclick="moveMonth(-1)">‹</button>
+      <div class="calt">${y}年${m}月</div>
+      <button class="calnav" onclick="moveMonth(1)">›</button>
+      <button class="caltoday" onclick="S.calMonth='${today.slice(0,7)}';S.calSel='${today}';render()">今日</button>
+    </div>
+    <div class="cgrid">${WD.map((w, i) => `<div class="wd ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}">${w}</div>`).join('')}${cells}</div>
+    <div class="legend">${[['試合', 'var(--accent)'], ...PLAN_TYPES].map(([t, c]) => `<span><i style="background:${c}"></i>${t}</span>`).join('')}</div>
+  </div>
+  <div class="secttl">${sd.getMonth()+1}月${sd.getDate()}日（${WD[sd.getDay()]}）の予定
+    <button class="mini" onclick="openPlan('', '${S.calSel}')">＋ この日に追加</button></div>
+  ${selList.length ? `<div class="list">${selList.map(planRow).join('')}</div>` : '<div class="empty" style="padding:18px">予定はありません</div>'}
+  <div class="secttl">これからの予定</div>
+  ${upcoming.length ? `<div class="list">${upcoming.map(planRow).join('')}</div>` : '<div class="empty" style="padding:18px">これからの予定はありません</div>'}`;
+}
+function moveMonth(d){
+  const [y, m] = S.calMonth.split('-').map(Number);
+  const t = new Date(y, m - 1 + d, 1); S.calMonth = ymd(t).slice(0, 7);
+  render();
+}
+let PL = null;
+function openPlan(id, date){
+  const p = S.schedule.find(x => x.id === id);
+  PL = p ? { ...p } : { id:'', date: date || S.calSel || todayYmd(), time:'', title:'', type: PLAN_TYPES[0][0], eventId: S.eventId || '', memo:'', done:'' };
+  const evs = [...S.events].sort((a, b) => b.date.localeCompare(a.date));
+  openSheet(`
+    <h2>${p ? '予定を編集' : '予定を追加'}</h2>
+    <div class="sec"><label>種類</label><div class="ptypes">${PLAN_TYPES.map(([t, c]) =>
+      `<button class="opt ${PL.type === t ? 'on' : ''}" style="--pc:${c}" onclick="setPlanType(this,'${t}')">${t}</button>`).join('')}</div></div>
+    <div class="f"><label class="fl">タイトル *</label><input class="inp" id="pl_title" value="${esc(PL.title)}" placeholder="例：チケット代の支払い（ジムへ）"></div>
+    <div class="two">
+      <div class="f"><label class="fl">日付 *</label><input class="inp" type="date" id="pl_date" value="${esc(PL.date)}"></div>
+      <div class="f"><label class="fl">時間（任意）</label><input class="inp" type="time" id="pl_time" value="${esc(PL.time)}"></div>
+    </div>
+    <div class="f"><label class="fl">関係する試合（任意）</label><select class="inp" id="pl_event">
+      <option value="">なし</option>${evs.map(e => `<option value="${esc(e.id)}" ${PL.eventId === e.id ? 'selected' : ''}>${esc(e.title)}（${fmtDate(e.date)}）</option>`).join('')}</select></div>
+    <div class="f"><label class="fl">メモ</label><textarea class="inp" id="pl_memo" placeholder="例：金額・持ち物・連絡先など">${esc(PL.memo)}</textarea></div>
+    <div class="actions">
+      <button class="btn" onclick="savePlan()">保存</button>
+      ${p ? `<button class="btn danger" onclick="armDelete(this,()=>removePlan('${esc(p.id)}'))">削除</button>` : ''}
+    </div>`);
+}
+function setPlanType(btn, t){
+  PL.type = t;
+  btn.parentNode.querySelectorAll('.opt').forEach(b => b.classList.toggle('on', b === btn));
+  const ti = $('#pl_title');
+  if (!ti.value) ti.value = t === '練習・その他' ? '' : t;
+}
+function savePlan(){
+  PL.title = $('#pl_title').value.trim(); PL.date = $('#pl_date').value; PL.time = $('#pl_time').value;
+  PL.eventId = $('#pl_event').value; PL.memo = $('#pl_memo').value.trim();
+  if (!PL.title) { toast('タイトルを入力してください'); return; }
+  if (!PL.date) { toast('日付を入れてください'); return; }
+  const o = { ...PL }; if (!o.id) o.id = newId(); delete o.updatedAt;
+  replaceLocal('schedule', o); S.calSel = o.date; S.calMonth = o.date.slice(0, 7);
+  closeSheet(); render();
+  batch([{ op:'upsert', key:'schedule', obj: o }]).then(() => toast('保存しました')).catch(fail);
+}
+function togglePlanDone(id){
+  const p = S.schedule.find(x => x.id === id); if (!p) return;
+  p.done = p.done === '1' ? '' : '1';
+  const y = window.scrollY; render(); window.scrollTo(0, y);
+  batch([{ op:'upsert', key:'schedule', obj: { id, done: p.done } }]).catch(fail);
+}
+function removePlan(id){
+  closeSheet(); S.schedule = S.schedule.filter(x => x.id !== id); render();
+  batch([{ op:'remove', key:'schedule', id }]).then(() => toast('削除しました')).catch(fail);
 }
 
 /* ---- 試合 ---- */
