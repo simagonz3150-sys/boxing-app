@@ -118,6 +118,14 @@
   .ptypes .opt{flex:1 1 30%;border-color:var(--pc)}
   .ptypes .opt.on{background:var(--pc);border-color:var(--pc)}
   nav button{font-size:10px}
+  .legend-edit{border:0;background:var(--bg);border-radius:8px;padding:4px 8px;font-size:11px;font-weight:600;color:var(--ink)}
+  .ptrow{border:1px solid var(--line);border-radius:12px;padding:8px;margin-bottom:8px}
+  .ptline{display:grid;grid-template-columns:18px minmax(0,1fr) 34px 34px 34px;gap:6px;align-items:center}
+  .ptline .opt{padding:8px 0}
+  .ptdot{width:16px;height:16px;border-radius:50%}
+  .ptcolors{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding-left:24px}
+  .ptcolors button{width:26px;height:26px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line)}
+  .ptcolors button.on{box-shadow:0 0 0 2px var(--ink)}
   .slotsum{margin-top:8px;font-size:12px;color:var(--sub)}.slotsum b{color:var(--ink)}
   .slotlist{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px}
   .slotlist>div{display:flex;align-items:center;gap:6px;font-size:13px;padding:6px 8px;border-radius:8px;background:var(--bg);color:var(--sub);cursor:pointer;min-width:0}
@@ -327,7 +335,7 @@ const Demo = (() => {
 })();
 
 /* ========= 状態 ========= */
-const S = { customers:[], events:[], tickets:[], seats:[], sponsors:[], schedule:[], calMonth:'', calSel:'', statuses:[],
+const S = { customers:[], events:[], tickets:[], seats:[], sponsors:[], schedule:[], planTypes:[], calMonth:'', calSel:'', statuses:[],
   tab:'tickets', eventId:null, tq:'', tfilter:'all', cq:'', cgroup:'all' };
 
 /* ========= ユーティリティ ========= */
@@ -357,11 +365,11 @@ function fail(e){ toast('保存に失敗しました：' + (e && e.message || e)
 /* ========= 読み込み ========= */
 async function load(){
   try {
-    const d = await getAll(['customers', 'events', 'tickets', 'seats', 'sponsors', 'schedule']);
+    const d = await getAll(['customers', 'events', 'tickets', 'seats', 'sponsors', 'schedule', 'plantypes']);
     Object.assign(S, { customers: d.customers, events: d.events, tickets: d.tickets.map(normTicket), statuses: STATUSES,
       seats: d.seats.map(x => ({ ...x, price: num(x.price), order: num(x.order) })),
       sponsors: d.sponsors.map(x => ({ ...x, logo: x.logo || '未受領', paid: x.paid || '未入金' })),
-      schedule: d.schedule });
+      schedule: d.schedule, planTypes: d.plantypes });
     if (!S.events.find(e => e.id === S.eventId)) S.eventId = defaultEvent();
     render();
   } catch (e) { $('#main').innerHTML = `<div class="empty">読み込みに失敗しました<br><small>${esc(e.message||e)}</small></div>`; }
@@ -926,11 +934,17 @@ function copySponsors(fromId){
 
 /* ---- 予定カレンダー ---- */
 // 種類と色（「試合」は試合タブから自動で表示）
-const PLAN_TYPES = [
+// 予定の種類（自由に変更できる。未設定なら初期値）
+const DEFAULT_PLAN_TYPES = [
   ['チケット締切', '#d97706'], ['チケット支払い', '#2563eb'], ['計量', '#7c3aed'],
   ['スポンサー', '#15803d'], ['練習・その他', '#6e6e73'],
 ];
-const planColor = t => t === '試合' ? 'var(--accent)' : ((PLAN_TYPES.find(p => p[0] === t) || [, '#6e6e73'])[1]);
+const PLAN_COLORS = ['#d97706','#2563eb','#7c3aed','#15803d','#6e6e73','#db2777','#0891b2','#ca8a04','#9333ea','#16a34a','#1c1c1e','#ea580c'];
+function planTypes(){
+  const list = (S.planTypes || []).slice().sort((a, b) => num(a.order) - num(b.order));
+  return list.length ? list.map(x => [x.name, x.color || '#6e6e73', x.id]) : DEFAULT_PLAN_TYPES;
+}
+const planColor = t => t === '試合' ? 'var(--accent)' : ((planTypes().find(p => p[0] === t) || [, '#a1a1a6'])[1]);
 const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const todayYmd = () => ymd(new Date());
 const WD = ['日','月','火','水','木','金','土'];
@@ -989,13 +1003,65 @@ function viewSchedule(){
       <button class="caltoday" onclick="S.calMonth='${today.slice(0,7)}';S.calSel='${today}';render()">今日</button>
     </div>
     <div class="cgrid">${WD.map((w, i) => `<div class="wd ${i === 0 ? 'sun' : i === 6 ? 'sat' : ''}">${w}</div>`).join('')}${cells}</div>
-    <div class="legend">${[['試合', 'var(--accent)'], ...PLAN_TYPES].map(([t, c]) => `<span><i style="background:${c}"></i>${t}</span>`).join('')}</div>
+    <div class="legend">${[['試合', 'var(--accent)'], ...planTypes()].map(([t, c]) => `<span><i style="background:${c}"></i>${esc(t)}</span>`).join('')}
+      <button class="legend-edit" onclick="openPlanTypes()">✏️ 種類を編集</button></div>
   </div>
   <div class="secttl">${sd.getMonth()+1}月${sd.getDate()}日（${WD[sd.getDay()]}）の予定
     <button class="mini" onclick="openPlan('', '${S.calSel}')">＋ この日に追加</button></div>
   ${selList.length ? `<div class="list">${selList.map(planRow).join('')}</div>` : '<div class="empty" style="padding:18px">予定はありません</div>'}
   <div class="secttl">これからの予定</div>
   ${upcoming.length ? `<div class="list">${upcoming.map(planRow).join('')}</div>` : '<div class="empty" style="padding:18px">これからの予定はありません</div>'}`;
+}
+/* 予定の種類の編集（名前・色・並び順・追加・削除） */
+let PT = [];
+function openPlanTypes(){
+  PT = planTypes().map(([name, color, id]) => ({ id: id || '', name, color, orig: name }));
+  renderPlanTypes();
+}
+function readPlanTypes(){ document.querySelectorAll('#ptRows .ptrow').forEach((r, i) => PT[i].name = r.querySelector('.inp').value); }
+function renderPlanTypes(){
+  const y = $('#sheet') ? $('#sheet').scrollTop : 0;
+  openSheet(`
+    <h2>予定の種類を編集</h2>
+    <div class="muted">名前を変えると、登録済みの予定の種類も変わります。「試合」は試合タブから自動で表示されるので、ここには出ません。</div>
+    <div id="ptRows" class="sec">${PT.map((t, i) => `
+      <div class="ptrow">
+        <div class="ptline">
+          <span class="ptdot" style="background:${t.color}"></span>
+          <input class="inp" value="${esc(t.name)}" placeholder="例：取材・撮影">
+          <button class="opt" onclick="movePT(${i},-1)" ${i===0?'disabled':''}>↑</button>
+          <button class="opt" onclick="movePT(${i},1)" ${i===PT.length-1?'disabled':''}>↓</button>
+          <button class="opt" style="color:var(--accent)" onclick="removePT(${i})">✕</button>
+        </div>
+        <div class="ptcolors">${PLAN_COLORS.map(c => `<button class="${t.color === c ? 'on' : ''}" style="background:${c}" onclick="colorPT(${i},'${c}')"></button>`).join('')}</div>
+      </div>`).join('')}</div>
+    <button class="btn ghost" onclick="addPT()">＋ 種類を追加</button>
+    <div class="actions"><button class="btn" onclick="savePlanTypes()">保存</button></div>`);
+  $('#sheet').scrollTop = y;
+}
+function movePT(i, d){ readPlanTypes(); const j = i + d; [PT[i], PT[j]] = [PT[j], PT[i]]; renderPlanTypes(); }
+function removePT(i){ readPlanTypes(); PT.splice(i, 1); renderPlanTypes(); }
+function colorPT(i, c){ readPlanTypes(); PT[i].color = c; renderPlanTypes(); }
+function addPT(){ readPlanTypes(); PT.push({ id:'', name:'', color: PLAN_COLORS[PT.length % PLAN_COLORS.length], orig:'' }); renderPlanTypes();
+  const ins = document.querySelectorAll('#ptRows .inp'); ins[ins.length - 1].focus(); }
+function savePlanTypes(){
+  readPlanTypes();
+  const list = PT.map(t => ({ ...t, name: t.name.trim() })).filter(t => t.name);
+  const names = list.map(t => t.name);
+  if (new Set(names).size !== names.length) { toast('同じ名前の種類があります'); return; }
+  if (names.includes('試合')) { toast('「試合」は使えない名前です'); return; }
+  if (!list.length) { toast('種類を1つ以上入れてください'); return; }
+  const rows = list.map((t, i) => ({ id: t.id || newId(), name: t.name, color: t.color, order: String(i) }));
+  const ops = [{ op:'replaceAll', key:'plantypes', list: rows }];
+  // 名前を変えた種類は、登録済みの予定も合わせる
+  list.forEach(t => {
+    if (t.orig && t.orig !== t.name) S.schedule.filter(p => p.type === t.orig).forEach(p => {
+      p.type = t.name; ops.push({ op:'upsert', key:'schedule', obj: { id: p.id, type: t.name } });
+    });
+  });
+  S.planTypes = rows;
+  closeSheet(); render();
+  batch(ops).then(() => toast('種類を保存しました')).catch(fail);
 }
 function moveMonth(d){
   const [y, m] = S.calMonth.split('-').map(Number);
@@ -1005,12 +1071,13 @@ function moveMonth(d){
 let PL = null;
 function openPlan(id, date){
   const p = S.schedule.find(x => x.id === id);
-  PL = p ? { ...p } : { id:'', date: date || S.calSel || todayYmd(), time:'', title:'', type: PLAN_TYPES[0][0], eventId: S.eventId || '', memo:'', done:'' };
+  PL = p ? { ...p } : { id:'', date: date || S.calSel || todayYmd(), time:'', title:'', type: (planTypes()[0] || [''])[0], eventId: S.eventId || '', memo:'', done:'' };
   const evs = [...S.events].sort((a, b) => b.date.localeCompare(a.date));
   openSheet(`
     <h2>${p ? '予定を編集' : '予定を追加'}</h2>
-    <div class="sec"><label>種類</label><div class="ptypes">${PLAN_TYPES.map(([t, c]) =>
-      `<button class="opt ${PL.type === t ? 'on' : ''}" style="--pc:${c}" onclick="setPlanType(this,'${t}')">${t}</button>`).join('')}</div></div>
+    <div class="sec"><label>種類</label><div class="ptypes">${[...planTypes(), ...(PL.type && !planTypes().some(p => p[0] === PL.type) ? [[PL.type, '#a1a1a6']] : [])].map(([t, c], i) =>
+      `<button class="opt ${PL.type === t ? 'on' : ''}" style="--pc:${c}" data-t="${esc(t)}" onclick="setPlanType(this, this.dataset.t)">${esc(t)}</button>`).join('')}</div>
+      <button class="legend-edit" style="margin-top:6px" onclick="closeSheet();openPlanTypes()">✏️ 種類を編集</button></div>
     <div class="f"><label class="fl">タイトル *</label><input class="inp" id="pl_title" value="${esc(PL.title)}" placeholder="例：チケット代の支払い（ジムへ）"></div>
     <div class="two">
       <div class="f"><label class="fl">日付 *</label><input class="inp" type="date" id="pl_date" value="${esc(PL.date)}"></div>
