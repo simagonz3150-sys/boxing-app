@@ -178,7 +178,7 @@ label.f textarea{min-height:90px;resize:vertical}
 <body>
 <header class="top">
   <div class="wrap">
-    <div class="brand"><h1>松田ジム</h1><span class="badge" id="adminBadge" hidden>管理者</span><a class="hguide" href="manual.pdf?v=2" target="_blank" rel="noopener">📘 使い方</a><span class="grow"></span></div>
+    <div class="brand"><h1>松田ジム</h1><span class="badge" id="adminBadge" hidden>管理者</span><a class="hguide" href="manual.pdf?v=3" target="_blank" rel="noopener">📘 使い方</a><span class="grow"></span></div>
     <nav class="tabs" id="tabs"></nav>
   </div>
 </header>
@@ -401,7 +401,7 @@ function render(){
       <input id="gCode" maxlength="30" autocomplete="off" autocapitalize="characters" placeholder="合言葉">
       <div class="err" id="gErr"></div>
       <button class="btn primary" id="gGo" style="width:100%;padding:13px">開く</button>
-      <a href="manual.pdf?v=2" target="_blank" rel="noopener" style="display:inline-block;margin-top:16px;font-size:13px;color:var(--muted)">📘 使い方マニュアル（PDF）</a></div>`;
+      <a href="manual.pdf?v=3" target="_blank" rel="noopener" style="display:inline-block;margin-top:16px;font-size:13px;color:var(--muted)">📘 使い方マニュアル（PDF）</a></div>`;
     if(state.access==="gate"){ const go = async ()=>{
         const code = normCode($("#gCode").value);
         if(code.length<4){ $("#gErr").textContent="合言葉を入れてください"; return; }
