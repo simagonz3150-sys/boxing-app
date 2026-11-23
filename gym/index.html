@@ -400,7 +400,7 @@ function render(){
       <input id="gCode" maxlength="30" autocomplete="off" autocapitalize="characters" placeholder="合言葉">
       <div class="err" id="gErr"></div>
       <button class="btn primary" id="gGo" style="width:100%;padding:13px">開く</button>
-      <a href="manual.pdf?v=1" target="_blank" rel="noopener" style="display:inline-block;margin-top:16px;font-size:13px;color:var(--muted)">📘 使い方マニュアル（PDF）</a></div>`;
+      <a href="manual.pdf?v=2" target="_blank" rel="noopener" style="display:inline-block;margin-top:16px;font-size:13px;color:var(--muted)">📘 使い方マニュアル（PDF）</a></div>`;
     if(state.access==="gate"){ const go = async ()=>{
         const code = normCode($("#gCode").value);
         if(code.length<4){ $("#gErr").textContent="合言葉を入れてください"; return; }
@@ -884,7 +884,7 @@ function manualBody(text){
 }
 function viewManual(){
   const secs = state.manual || DEFAULT_MANUAL;
-  let h = `<a class="guide-btn" href="manual.pdf?v=1" target="_blank" rel="noopener">📘 アプリの使い方マニュアル（PDF）<small>登録のしかた・リーダーになったら</small></a>
+  let h = `<a class="guide-btn" href="manual.pdf?v=2" target="_blank" rel="noopener">📘 アプリの使い方マニュアル（PDF）<small>登録のしかた・リーダーになったら</small></a>
     <h2 class="sec">試合サポートの手順書</h2><p class="lead">試合前から試合後までの流れ</p>`;
   h += `<div class="mjump">${secs.map((s,i)=>`<a href="#msec${i}" data-act="mjump" data-i="${i}"><b>${i+1}</b>${esc(s.title)}</a>`).join("")}</div><div class="list manual">`;
   h += secs.map((s,i)=>`<div class="card" id="msec${i}"><div class="mhead"><span class="no">${i+1}</span><h3>${esc(s.title)}</h3></div><div class="mbody">${manualBody(s.body)}</div>
