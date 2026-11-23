@@ -79,9 +79,14 @@
   .slot.taken{background:rgba(200,16,46,.78)}
   .slot.taken span{border-color:#fff;color:var(--accent)}
   .timg .fixed{position:absolute;transform:translate(-50%,-50%);border-radius:50%}
+  .slotsum{margin-top:8px;font-size:12px;color:var(--sub)}.slotsum b{color:var(--ink)}
   .slotlist{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px}
   .slotlist>div{display:flex;align-items:center;gap:6px;font-size:13px;padding:6px 8px;border-radius:8px;background:var(--bg);color:var(--sub);cursor:pointer;min-width:0}
   .slotlist>div span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .slotlist .sl em{display:block;font-style:normal;font-size:10px;color:var(--sub);font-weight:400}
+  .slotpick .opt{flex-direction:column;gap:2px}
+  .slotpick .opt small{font-size:10px;font-weight:500;color:var(--sub)}
+  .slotpick .opt.on small{color:#c7c7cc}
   .cn{font-style:normal;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;
     border:2px solid currentColor;font-size:11px;font-weight:800;line-height:1;flex:none}
   .slotlist>div b{color:#2a37c9;display:flex}
@@ -651,6 +656,11 @@ const PILL2 = { '未受領':'s6', '受領済':'s3', '未入金':'s6', '入金済
 const IMG_BASE = IS_GAS ? 'https://raw.githubusercontent.com/simagonz3150-sys/boxing-app/main/img/' : 'img/';
 const SLOTS = [{"n": 1, "side": "front", "x": 50.3, "y": 10.9, "w": 60.0, "h": 12.9, "r": 0}, {"n": 2, "side": "front", "x": 29.7, "y": 50.4, "w": 27.0, "h": 11.9, "r": 5}, {"n": 3, "side": "front", "x": 26.4, "y": 63.7, "w": 27.0, "h": 12.9, "r": 5}, {"n": 4, "side": "front", "x": 75.5, "y": 51.2, "w": 27.7, "h": 12.9, "r": -6}, {"n": 5, "side": "front", "x": 75.5, "y": 65.7, "w": 29.0, "h": 12.9, "r": -6}, {"n": 6, "side": "front", "x": 76.4, "y": 80.6, "w": 29.7, "h": 13.0, "r": -6}, {"n": 7, "side": "back", "x": 49.6, "y": 34.8, "w": 54.3, "h": 24.2, "r": 0}, {"n": 8, "side": "back", "x": 25.7, "y": 62.3, "w": 28.4, "h": 11.9, "r": 5}, {"n": 9, "side": "back", "x": 22.7, "y": 79.1, "w": 29.3, "h": 14.5, "r": 5}, {"n": 10, "side": "back", "x": 74.0, "y": 63.0, "w": 27.8, "h": 13.2, "r": -6}, {"n": 11, "side": "back", "x": 74.2, "y": 79.4, "w": 28.7, "h": 14.5, "r": -6}];
 const FIXED_PATCH = { label: 'MBG', note: '付いているワッペン', ...({"x": 14.6, "y": 76.8, "d": 14.5}) };
+// ワッペンの料金（Canvaの案内サイトより・1試合ごと・税込）
+const SLOT_INFO = { 1:['ベルトライン',33000], 2:['太もも',22000], 3:['太もも',22000], 4:['太もも',22000], 5:['太もも',22000], 6:['太もも',22000],
+  7:['ヒップ',55000], 8:['裏太もも',22000], 9:['裏太もも',22000], 10:['裏太もも',22000], 11:['裏太もも',22000] };
+const slotPrice = n => (SLOT_INFO[n] || [,0])[1];
+const slotName = n => (SLOT_INFO[n] || [''])[0];
 const CIRC = n => `<i class="cn">${n}</i>`;
 const slotOwner = (eid, n) => S.sponsors.find(x => x.eventId === eid && num(x.slot) === n);
 function trunksSide(side, eid){
@@ -665,9 +675,11 @@ function trunksSide(side, eid){
 function trunksCard(eid){
   return `<div class="card"><div class="nm">トランクスのワッペン</div>
     <div class="muted" style="margin-top:2px">番号をタップすると、その枠のスポンサーを登録・確認できます</div>
+    <div class="slotsum">埋まっている枠 <b>${SLOTS.filter(z => slotOwner(eid, z.n)).length} / ${SLOTS.length}</b>　全枠の料金合計 ${yen(SLOTS.reduce((t, z) => t + slotPrice(z.n), 0))}</div>
     <div class="trunks">${trunksSide('front', eid)}${trunksSide('back', eid)}</div>
     <div class="slotlist">${SLOTS.map(z => { const o = slotOwner(eid, z.n);
-      return `<div class="${o ? 'on' : ''}" onclick="${o ? `openSponsor('${esc(o.id)}')` : `openSponsor('', ${z.n})`}"><b>${CIRC(z.n)}</b><span>${o ? esc(o.company) : '募集中'}</span></div>`; }).join('')}
+      return `<div class="${o ? 'on' : ''}" onclick="${o ? `openSponsor('${esc(o.id)}')` : `openSponsor('', ${z.n})`}"><b>${CIRC(z.n)}</b>
+        <span class="sl"><em>${slotName(z.n)}　${yen(slotPrice(z.n))}</em>${o ? esc(o.company) : '募集中'}</span></div>`; }).join('')}
       <div class="fixedrow"><img src="${IMG_BASE}mbg.png" alt=""><span>${FIXED_PATCH.label}（${FIXED_PATCH.note}）</span></div>
     </div></div>`;
 }
@@ -723,7 +735,7 @@ function toggleSp(id, field){
 let SP = null;
 function openSponsor(id, presetSlot){
   const x = S.sponsors.find(s => s.id === id);
-  SP = x ? { ...x } : { id:'', eventId:S.eventId, company:'', contact:'', phone:'', email:'', amount:'', position:'', slot: presetSlot ? String(presetSlot) : '', logo:'未受領', paid:'未入金', memo:'' };
+  SP = x ? { ...x } : { id:'', eventId:S.eventId, company:'', contact:'', phone:'', email:'', amount: presetSlot ? String(slotPrice(presetSlot)) : '', position:'', slot: presetSlot ? String(presetSlot) : '', logo:'未受領', paid:'未入金', memo:'' };
   // 過去に登録した会社名を候補に
   const known = [...new Set(S.sponsors.map(s => s.company).filter(Boolean))];
   const f = (k, label, attrs='') => `<div class="f"><label class="fl">${label}</label><input class="inp" id="sp_${k}" value="${esc(SP[k])}" ${attrs}></div>`;
@@ -740,7 +752,8 @@ function openSponsor(id, presetSlot){
       <div class="slotpick">${SLOTS.map(z => { const o = slotOwner(SP.eventId, z.n); const mine = num(SP.slot) === z.n;
         const busy = o && o.id !== SP.id;
         return `<button class="opt ${mine ? 'on' : ''}" ${busy ? 'disabled title="' + esc(o.company) + '"' : ''}
-          onclick="SP.slot=SP.slot==='${z.n}'?'':'${z.n}';this.parentNode.querySelectorAll('.opt').forEach(b=>b.classList.toggle('on',b===this&&SP.slot!==''))">${CIRC(z.n)}</button>`; }).join('')}</div>
+          onclick="pickSlot(this, ${z.n})">${CIRC(z.n)}<small>${yen(slotPrice(z.n)).replace(',000','千')}</small></button>`; }).join('')}</div>
+      <div class="muted" id="slotinfo" style="margin-top:6px">${num(SP.slot) ? `${CIRC(num(SP.slot))} ${slotName(num(SP.slot))}：${yen(slotPrice(num(SP.slot)))}（1試合・税込）` : ''}</div>
       <div class="muted" style="margin-top:4px">グレーの番号は、ほかのスポンサーが使っています</div></div>
     <div class="sec"><label>ロゴデータ</label>${seg('logo', LOGO)}</div>
     <div class="sec"><label>入金</label>${seg('paid', PAID)}</div>
@@ -752,6 +765,16 @@ function openSponsor(id, presetSlot){
     </div>`);
 }
 /* 過去に登録した会社を選んだら、担当者・連絡先などを自動で入れる */
+function pickSlot(btn, n){
+  const prev = num(SP.slot);
+  SP.slot = prev === n ? '' : String(n);
+  btn.parentNode.querySelectorAll('.opt').forEach(b => b.classList.toggle('on', b === btn && SP.slot !== ''));
+  // 協賛金額が空か、前に選んだ枠の料金のままなら、新しい枠の料金を入れる
+  const amt = $('#sp_amount'); const cur = num(amt.value.replace(/[^\d]/g, ''));
+  if (SP.slot && (!cur || cur === slotPrice(prev))) amt.value = slotPrice(n);
+  if (!SP.slot && prev && cur === slotPrice(prev)) amt.value = '';
+  $('#slotinfo').innerHTML = SP.slot ? `${CIRC(n)} ${slotName(n)}：${yen(slotPrice(n))}（1試合・税込）` : '';
+}
 function fillSponsor(name){
   const last = [...S.sponsors].reverse().find(s => s.company === name);
   if (!last) return;
