@@ -100,6 +100,7 @@ p.lead{color:var(--muted);font-size:13px;margin:0 0 14px}
 .spar{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;background:#f7f5f1;border-radius:10px;padding:6px 8px}
 .spar-ops{display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px}
 .spar-op{display:flex;align-items:center;flex-wrap:wrap;gap:4px;font-size:13px}
+.extp{font-size:13px;background:#fff;border:1px solid var(--line);border-radius:99px;padding:2px 9px;white-space:nowrap}
 .spar-op .vs{font-weight:900;color:var(--accent);font-size:11px}
 .spar-op .rd{background:#141414;color:#fff;border-radius:6px;padding:0 6px;font-size:11px;font-weight:700;margin-left:4px}
 .fsec{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
@@ -942,7 +943,7 @@ const hoursText = h => h.closed ? "休み" : (h.ranges||[]).filter(r=>r.from||r.
 const sparCount = c => (c.spars||[]).length || (c.memberIds||[]).length;
 function sparHtml(c){
   if(!(c.spars||[]).length) return (c.memberIds||[]).length ? `<div class="tags" style="margin-top:6px">${c.memberIds.map(mchip).join("")}</div>` : "";
-  return `<div class="spars">${c.spars.map(sp=>`<div class="spar"><div class="spar-me">${sp.memberId?mchip(sp.memberId):"<span class='bnone'>未定</span>"}</div>
+  return `<div class="spars">${c.spars.map(sp=>`<div class="spar"><div class="spar-me">${sp.kind==="gym" ? `<span class="extp"><b>${esc(sp.gym||"")}</b>${sp.gym&&sp.name?" ":""}${esc(sp.name||"")}${sp.name?" 選手":""}</span>` : (sp.memberId?mchip(sp.memberId):"<span class='bnone'>未定</span>")}</div>
     <div class="spar-ops">${(sp.opponents||[]).map(o=>`<div class="spar-op"><span class="vs">vs</span>${o.kind==="member"? (o.memberId?mchip(o.memberId):"未定") : `<b>${esc(o.gym||"")}</b>${o.gym?"　":""}${esc(o.name||"")}${o.name?" 選手":""}`}${o.rounds?`<span class="rd">${esc(o.rounds)}R</span>`:""}</div>`).join("") || "<span class='bnone'>対戦相手 未定</span>"}</div></div>`).join("")}</div>`;
 }
 function viewCalendar(){
@@ -980,6 +981,7 @@ function viewCalendar(){
       const c = x.c, t = CAL_TYPES[x.kind]||CAL_TYPES["その他"];
       return `<div class="card cal-item" style="border-left:5px solid ${t.c}"><div class="ci-type" style="color:${t.c}">${x.kind==="スパーリング"?"🥊 スパーリング":"📌 "+esc(c.title||"予定")}${c.time?`<span class="ci-time">${esc(c.time)} 開始</span>`:""}</div>
         ${x.kind==="スパーリング"&&c.title?`<div style="font-weight:900">${esc(c.title)}</div>`:""}
+        ${x.kind==="スパーリング"?`<div class="sub" style="margin:0">📍 ${esc(c.place||"松田ジム")}</div>`:""}
         ${x.kind==="スパーリング"?sparHtml(c):((c.memberIds||[]).length?`<div class="tags" style="margin-top:6px">${c.memberIds.map(mchip).join("")}</div>`:"")}
         ${c.memo?`<div class="sub">${esc(c.memo)}</div>`:""}
         ${state.isAdmin?`<div class="admin-actions"><button class="btn sm" data-act="cal-edit" data-id="${c.id}">編集</button><button class="btn sm danger" data-act="cal-del" data-id="${c.id}">削除</button></div>`:""}</div>`; }).join("")}</div>`
@@ -1013,7 +1015,7 @@ function calForm(c, opts={}){
     <div class="row" style="margin-top:8px"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="cSave">保存</button></div></div>`);
   c = {...c};
   const syncInputs = ()=>{
-    if($("#hNote")) hNote = $("#hNote").value; if($("#cTime")) c.time = $("#cTime").value; if($("#cMemo")) c.memo = $("#cMemo").value; if($("#cTitle")) c.title = $("#cTitle").value;
+    if($("#hNote")) hNote = $("#hNote").value; if($("#cTime")) c.time = $("#cTime").value; if($("#cPlace")) c.place = $("#cPlace").value; if($("#cMemo")) c.memo = $("#cMemo").value; if($("#cTitle")) c.title = $("#cTitle").value;
     document.querySelectorAll("[data-r]").forEach(el=>{ const [i,k]=el.dataset.r.split(":"); ranges[i][k]=el.value; });
     document.querySelectorAll("[data-sp]").forEach(el=>{ const [i,k]=el.dataset.sp.split(":"); spars[i][k]=el.value; });
     document.querySelectorAll("[data-op]").forEach(el=>{ const [i,j,k]=el.dataset.op.split(":"); spars[i].opponents[j][k]=el.value; });
@@ -1031,9 +1033,11 @@ function calForm(c, opts={}){
     document.querySelectorAll("#tSeg button").forEach(b=>b.classList.toggle("on", b.dataset.t===type));
     let h = "";
     if(type==="スパーリング"){
-      h += `<label class="f">開始時間<input type="time" id="cTime" value="${esc((c.time||"").replace(/[^0-9:]/g,"").slice(0,5))}"></label>`;
+      h += `<div class="two"><label class="f">開始時間<input type="time" id="cTime" value="${esc((c.time||"").replace(/[^0-9:]/g,"").slice(0,5))}"></label><label class="f">場所 <small>空欄なら松田ジム</small><input id="cPlace" maxlength="40" value="${esc(c.place)}" placeholder="松田ジム"></label></div>`;
       h += spars.map((sp,i)=>`<div class="spbox"><div class="row" style="margin-bottom:6px"><b class="grow">スパーリングする人 ${spars.length>1?i+1:""}</b>${spars.length>1?`<button type="button" class="btn sm danger" data-spdel="${i}">この人を外す</button>`:""}</div>
-        <select data-sp="${i}:memberId" ${inp}>${memberOptions(sp.memberId,"松田ジムの所属者を選ぶ")}</select>
+        <div class="row" style="margin-bottom:6px"><span class="seg">${[["member","松田ジム"],["gym","他のジム"]].map(([v,l])=>`<button type="button" class="${(sp.kind||"member")===v?"on":""}" data-spk="${i}:${v}">${l}</button>`).join("")}</span></div>
+        ${(sp.kind||"member")==="gym" ? `<div class="row" style="flex-wrap:nowrap;gap:6px"><input data-sp="${i}:gym" value="${esc(sp.gym)}" maxlength="30" placeholder="〇〇ジム" ${inp}><input data-sp="${i}:name" value="${esc(sp.name)}" maxlength="30" placeholder="〇〇 選手" ${inp}></div>`
+          : `<select data-sp="${i}:memberId" ${inp}>${memberOptions(sp.memberId,"松田ジムの所属者を選ぶ")}</select>`}
         <div style="font-size:12px;font-weight:700;color:var(--muted);margin:10px 0 4px">対戦相手</div>
         ${(sp.opponents||[]).map((o,j)=>`<div class="opbox"><div class="row" style="margin-bottom:6px"><span class="seg">${[["gym","他のジム"],["member","松田ジム"]].map(([v,l])=>`<button type="button" class="${(o.kind||"gym")===v?"on":""}" data-opk="${i}:${j}:${v}">${l}</button>`).join("")}</span><span class="grow"></span><button type="button" class="btn sm danger" data-opdel="${i}:${j}">✕</button></div>
           ${(o.kind||"gym")==="member" ? `<select data-op="${i}:${j}:memberId" ${inp}>${memberOptions(o.memberId,"松田ジムの選手を選ぶ")}</select>`
@@ -1059,6 +1063,7 @@ function calForm(c, opts={}){
     if(t.dataset.spdel){ spars.splice(Number(t.dataset.spdel),1); drawType(); return; }
     if(t.dataset.opadd){ spars[t.dataset.opadd].opponents.push({kind:"gym",gym:"",name:"",rounds:""}); drawType(); return; }
     if(t.dataset.opdel){ const [i,j]=t.dataset.opdel.split(":"); spars[i].opponents.splice(Number(j),1); drawType(); return; }
+    if(t.dataset.spk){ const [i,v]=t.dataset.spk.split(":"); spars[i].kind=v; drawType(); return; }
     if(t.dataset.opk){ const [i,j,v]=t.dataset.opk.split(":"); spars[i].opponents[j].kind=v; drawType(); return; }
   });
   drawHours(); drawType();
@@ -1076,7 +1081,8 @@ function calForm(c, opts={}){
       else {
         const data = { date, type, time: $("#cTime")?.value || "", memo: $("#cMemo")?.value.trim() || "", title: $("#cTitle")?.value.trim() || "", memberIds: [] };
         if(type==="スパーリング"){
-          data.spars = spars.filter(sp=>sp.memberId || (sp.opponents||[]).some(o=>o.memberId||o.gym||o.name)).map(sp=>({memberId:sp.memberId||"", opponents:(sp.opponents||[]).filter(o=>o.memberId||o.gym||o.name||o.rounds).map(o=>({kind:o.kind||"gym", memberId:o.kind==="member"?(o.memberId||""):"", gym:o.kind==="member"?"":(o.gym||"").trim(), name:o.kind==="member"?"":(o.name||"").trim(), rounds:o.rounds?Number(o.rounds):""}))}));
+          data.place = ($("#cPlace")?.value||"").trim();
+          data.spars = spars.filter(sp=>((sp.kind||"member")==="gym" ? (sp.gym||sp.name) : sp.memberId) || (sp.opponents||[]).some(o=>o.memberId||o.gym||o.name)).map(sp=>({kind:sp.kind||"member", memberId:(sp.kind||"member")==="member"?(sp.memberId||""):"", gym:(sp.kind||"member")==="gym"?(sp.gym||"").trim():"", name:(sp.kind||"member")==="gym"?(sp.name||"").trim():"", opponents:(sp.opponents||[]).filter(o=>o.memberId||o.gym||o.name||o.rounds).map(o=>({kind:o.kind||"gym", memberId:o.kind==="member"?(o.memberId||""):"", gym:o.kind==="member"?"":(o.gym||"").trim(), name:o.kind==="member"?"":(o.name||"").trim(), rounds:o.rounds?Number(o.rounds):""}))}));
           if(!data.spars.length){ $("#cErr").textContent="スパーリングする人を選んでください"; return; }
         }
         if(type==="その他" && !data.title){ $("#cErr").textContent="タイトルを入れてください"; return; }
