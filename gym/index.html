@@ -79,6 +79,11 @@ p.lead{color:var(--muted);font-size:13px;margin:0 0 14px}
 .ev-block{margin-top:10px;font-size:14px}
 .ev-block h4{margin:0 0 4px;font-size:12px;color:var(--muted)}
 .ev-block .pre{white-space:pre-wrap}
+.basehrs{display:flex;align-items:center;gap:8px;font-size:11px;color:#4a4740;background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin:0 0 10px}
+.basehrs .bh-t{font-size:10px;color:var(--muted);font-weight:700;writing-mode:horizontal-tb;flex:none;line-height:1.3;text-align:center}
+.basehrs .bh-g{flex:1;display:grid;grid-template-columns:auto 1fr;column-gap:6px;row-gap:1px;line-height:1.5}
+.basehrs .bh-g b{color:var(--ink);text-align:right}
+.basehrs .btn{flex:none}
 .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
 .cw{text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:2px 0}
 .cw.sun,.cd.sun .cn{color:var(--accent)} .cw.sat,.cd.sat .cn{color:#2a6fdb}
@@ -955,7 +960,9 @@ function viewCalendar(){
   let h = `<div class="row" style="margin-top:22px"><button class="btn sm" data-act="cal-move" data-d="-1">◀</button><h2 class="sec" style="margin:0;flex:1;text-align:center">${y}年${mo}月</h2><button class="btn sm" data-act="cal-move" data-d="1">▶</button></div>
     <div class="row" style="justify-content:center;margin:8px 0 10px;gap:4px 10px;font-size:11px;color:var(--muted)">
       <span><i class="cdot" style="background:var(--accent)"></i>試合</span><span><i class="cdot" style="background:#8f897e"></i>ジム休み</span><span><i class="cdot" style="background:#2a6fdb"></i>スパーリング</span><span><i class="cdot" style="background:#1f7a4d"></i>その他</span><span><i class="cdot" style="background:#d98b1a"></i>祝日プロのみ</span>
-      ${state.calMonth!==today.slice(0,7)?`<button class="btn sm" data-act="cal-today" style="padding:2px 8px">今日</button>`:""}</div>
+</div>
+    <div class="basehrs"><div class="bh-t">基本の<br>営業時間</div><div class="bh-g"><b>平日</b><span>17:00〜21:00</span><b>土</b><span>16:00〜 一斉練習</span><b>日</b><span>定休日</span><b>祝日</b><span>プロのみ</span></div>
+      ${state.calMonth!==today.slice(0,7)?`<button class="btn sm" data-act="cal-today" style="padding:2px 8px;margin-left:6px">今日</button>`:""}</div>
     <div class="cal">${["日","月","火","水","木","金","土"].map((w,i)=>`<div class="cw ${i===0?"sun":i===6?"sat":""}">${w}</div>`).join("")}`;
   for(let i=0;i<42;i++){
     const d = new Date(start); d.setDate(start.getDate()+i); const ds = ymd(d);
@@ -1023,7 +1030,7 @@ function calForm(c, opts={}){
   const drawHours = ()=>{
     document.querySelectorAll("#hSeg button").forEach(b=>b.classList.toggle("on", b.dataset.h===hMode));
     const bh = baseHours($("#cDate")?.value || date0);
-    $("#hRanges").innerHTML = hMode!=="open" ? (hMode==="closed"?`<div class="sub" style="margin:0">この日はジム休みとして表示されます。</div>`:`<div class="sub" style="margin:0">基本：${hoursHtml(bh)}</div>`) :
+    $("#hRanges").innerHTML = hMode!=="open" ? (hMode==="closed"?`<div class="sub" style="margin:0">この日はジム休みとして表示されます。</div><label class="f" style="margin:8px 0 0">ひとこと <small>任意。例：年末年始休み</small><input id="hNote" maxlength="30" value="${esc(hNote)}"></label>`:`<div class="sub" style="margin:0">基本：${hoursHtml(bh)}</div>`) :
       ranges.map((r,i)=>`<div class="row" style="flex-wrap:nowrap;gap:6px;margin-bottom:6px"><input type="time" data-r="${i}:from" value="${esc(r.from)}" ${inp}><span>〜</span><input type="time" data-r="${i}:to" value="${esc(r.to)}" ${inp}>${ranges.length>1?`<button type="button" class="btn sm danger" data-rdel="${i}">✕</button>`:""}</div>`).join("")
       + `<button type="button" class="btn sm" id="rAdd">＋ 時間帯を追加</button>`
       + `<label class="f" style="margin:10px 0 0">ひとこと <small>任意。例：一斉練習／プロのみ</small><input id="hNote" maxlength="30" value="${esc(hNote)}"></label>`;
@@ -1074,7 +1081,7 @@ function calForm(c, opts={}){
     const b = writeBatch(db); let n = 0;
     const hid = "hours_"+date;
     if(hMode==="none"){ if(hoursOf(date)){ b.delete(doc(db,"calendar",hid)); n++; } }
-    else { b.set(doc(db,"calendar",hid), {date, type:"営業時間", closed: hMode==="closed", ranges: hMode==="open" ? ranges.filter(r=>r.from||r.to) : [], note: hMode==="open" ? (hNote||"").trim() : ""}); n++; }
+    else { b.set(doc(db,"calendar",hid), {date, type:"営業時間", closed: hMode==="closed", ranges: hMode==="open" ? ranges.filter(r=>r.from||r.to) : [], note: (hNote||"").trim()}); n++; }
     if(!opts.hoursOnly){
       const ref = isNew ? doc(collection(db,"calendar")) : doc(db,"calendar",c.id);
       if(type==="なし"){ if(!isNew){ b.delete(ref); n++; } }
