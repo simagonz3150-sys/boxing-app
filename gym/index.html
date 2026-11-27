@@ -201,6 +201,11 @@ label.f small{font-weight:400;color:var(--muted)}
 label.f input,label.f select,label.f textarea{display:block;width:100%;margin-top:4px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;font-size:16px}
 label.f textarea{min-height:90px;resize:vertical}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.two>*{min-width:0}
+input[type=date],input[type=time]{-webkit-appearance:none;appearance:none;min-width:0;max-width:100%;box-sizing:border-box;min-height:44px;text-align:left}
+.card.absent{margin-top:8px;display:flex;align-items:center;gap:10px;border-left:5px solid #8a4fc7;background:#f6f0fc}
+.abs-btn{width:100%;margin-bottom:12px;padding:12px;border-radius:12px;border:2px solid #8a4fc7;background:#fff;color:#8a4fc7;font-weight:900;font-size:15px}
+.abs-btn.on{background:#8a4fc7;color:#fff}
 .photo-pick{display:flex;gap:12px;align-items:center;margin-bottom:14px}
 .photo-pick .avatar{width:96px;height:96px}
 .err{color:var(--accent);font-size:13px;margin:6px 0}
@@ -933,7 +938,9 @@ function baseHours(date){
   return {closed:false, ranges:[{from:"17:00",to:"21:00"}], note:""};
 }
 const effHours = date => hoursOf(date) || {...baseHours(date), base:true};
-const isHours = c => c.id && c.id.startsWith("hours_");
+const isHours = c => c.id && (c.id.startsWith("hours_") || c.id.startsWith("absent_"));
+const absentOf = date => state.cal.find(c=>c.id==="absent_"+date);
+const absentText = a => a.allDay ? "終日" : `${a.from||""}〜${a.to||""}`;
 function dayItems(date){
   const out = [];
   state.events.filter(e=>e.date===date).forEach(e=>out.push({kind:"試合", ev:e}));
@@ -959,7 +966,7 @@ function viewCalendar(){
   const first = new Date(y, mo-1, 1), start = new Date(y, mo-1, 1 - first.getDay());
   let h = `<div class="row" style="margin-top:22px"><button class="btn sm" data-act="cal-move" data-d="-1">◀</button><h2 class="sec" style="margin:0;flex:1;text-align:center">${y}年${mo}月</h2><button class="btn sm" data-act="cal-move" data-d="1">▶</button></div>
     <div class="row" style="justify-content:center;margin:8px 0 10px;gap:4px 10px;font-size:11px;color:var(--muted)">
-      <span><i class="cdot" style="background:var(--accent)"></i>試合</span><span><i class="cdot" style="background:#8f897e"></i>ジム休み</span><span><i class="cdot" style="background:#2a6fdb"></i>スパーリング</span><span><i class="cdot" style="background:#1f7a4d"></i>その他</span><span><i class="cdot" style="background:#d98b1a"></i>祝日プロのみ</span>
+      <span><i class="cdot" style="background:var(--accent)"></i>試合</span><span><i class="cdot" style="background:#8f897e"></i>ジム休み</span><span><i class="cdot" style="background:#2a6fdb"></i>スパーリング</span><span><i class="cdot" style="background:#1f7a4d"></i>その他</span><span><i class="cdot" style="background:#d98b1a"></i>祝日プロのみ</span><span><i class="cdot" style="background:#8a4fc7"></i>会長不在</span>
 </div>
     <div class="basehrs"><div class="bh-t">基本の<br>営業時間</div><div class="bh-g"><b>平日</b><span>17:00〜21:00</span><b>土</b><span>16:00〜 一斉練習</span><b>日</b><span>定休日</span><b>祝日</b><span>プロのみ</span></div>
       ${state.calMonth!==today.slice(0,7)?`<button class="btn sm" data-act="cal-today" style="padding:2px 8px;margin-left:6px">今日</button>`:""}</div>
@@ -969,7 +976,7 @@ function viewCalendar(){
     if(i>=35 && d.getMonth()!==mo-1) break;
     const items = dayItems(ds).filter(x=>x.kind!=="休み"); const off = isClosed(ds), eh = effHours(ds), hol = holidayOf(ds);
     const irregularOff = off && !(eh.base && eh.closed); const sunOpen = new Date(ds+"T00:00:00").getDay()===0 && !off;
-    const tags = (irregularOff?[`<span class="ct" style="background:#8f897e">休</span>`]:[]).concat(hol&&!off?[`<span class="ct" style="background:#d98b1a">プロ</span>`]:[]).concat(sunOpen?[`<span class="ct" style="background:#4a7bd0">営業</span>`]:[]).concat(items.map(x=>{ const c = x.kind==="試合" ? "var(--accent)" : (CAL_TYPES[x.kind]||CAL_TYPES["その他"]).c;
+    const ab = absentOf(ds); const tags = (ab?[`<span class="ct" style="background:#8a4fc7">会長不在</span>`]:[]).concat(irregularOff?[`<span class="ct" style="background:#8f897e">休</span>`]:[]).concat(hol&&!off?[`<span class="ct" style="background:#d98b1a">プロ</span>`]:[]).concat(sunOpen?[`<span class="ct" style="background:#4a7bd0">営業</span>`]:[]).concat(items.map(x=>{ const c = x.kind==="試合" ? "var(--accent)" : (CAL_TYPES[x.kind]||CAL_TYPES["その他"]).c;
         const label = x.kind==="試合" ? "試合" : x.kind==="スパーリング" ? `スパー${sparCount(x.c)||""}` : (x.c.title||"予定");
         return `<span class="ct" style="background:${c}">${esc(label)}</span>`; }));
     h += `<button class="cd ${d.getMonth()!==mo-1?"out":""} ${ds===today?"today":""} ${ds===state.calDay?"sel":""} ${off?"off":""} ${d.getDay()===0||hol?"sun":d.getDay()===6?"sat":""}" data-act="cal-day" data-d="${ds}">
@@ -980,6 +987,8 @@ function viewCalendar(){
   h += `<div class="group-h" style="margin-top:16px">${esc(fmtDate(sel))}</div>`;
   const eh = effHours(sel), holN = holidayOf(sel);
   h += `<div class="card hours ${isClosed(sel)?"closed":""}"><span class="ci-type" style="margin:0">${isClosed(sel)?"🚪 休み":"🕐 営業"}</span><span class="grow" style="font-weight:900">${hoursHtml(eh)}${holN?`<div class="sub" style="margin:0;font-weight:400">${esc(holN)}</div>`:""}${eh.base?`<div class="sub" style="margin:0;font-weight:400">基本の営業時間</div>`:`<div class="sub" style="margin:0;font-weight:400;color:#4a7bd0">この日だけの設定</div>`}</span>${state.isAdmin?`<button class="btn sm" data-act="cal-hours">変更</button>`:""}</div>`;
+  const abs = absentOf(sel);
+  if(abs) h += `<div class="card absent"><span class="ci-type" style="margin:0;color:#8a4fc7">👤 会長不在</span><span class="grow"><b>${esc(absentText(abs))}</b>${abs.note?`<div class="sub" style="margin:0">${esc(abs.note)}</div>`:""}</span>${state.isAdmin?`<button class="btn sm" data-act="cal-hours">変更</button>`:""}</div>`;
   const list = items.filter(x=>x.kind!=="休み");
   h += list.length ? `<div class="list" style="margin-top:8px">${list.map(x=>{
       if(x.kind==="試合"){ const e=x.ev; return `<div class="card cal-item" style="border-left:5px solid var(--accent)"><div class="ci-type" style="color:var(--accent)">🥊 試合</div><div style="font-weight:900">${esc(e.title||"試合")}</div><div class="sub">${e.time?esc(e.time)+" 開始・":""}${esc(e.venue||"")}</div>
@@ -1007,10 +1016,13 @@ function calForm(c, opts={}){
   const bh0 = baseHours(date0);
   let ranges = hr0 && !hr0.closed && (hr0.ranges||[]).length ? hr0.ranges.map(r=>({...r})) : ((bh0.ranges||[]).length ? bh0.ranges.map(r=>({...r})) : [{from:"17:00",to:"21:00"}]);
   let hNote = hr0 ? (hr0.note||"") : (bh0.closed ? "" : (bh0.note||""));
+  const ab0 = absentOf(date0);
+  let absOn = !!ab0, absAll = ab0 ? !!ab0.allDay : true, absFrom = ab0?.from||"", absTo = ab0?.to||"", absNote = ab0?.note||"";
   let type = opts.hoursOnly ? "なし" : (c.type==="休み" ? "なし" : (c.type || "スパーリング"));
   let spars = (c.spars||[]).length ? JSON.parse(JSON.stringify(c.spars)) : ((c.memberIds||[]).length ? c.memberIds.map(id=>({memberId:id, opponents:[]})) : [{memberId:"", opponents:[{kind:"gym", gym:"", name:"", rounds:""}]}]);
   const inp = 'style="width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:#fff;font-size:16px"';
-  openSheet(`<div id="cfWrap"><h3>${opts.hoursOnly?"営業時間を編集":isNew?"予定を追加":"予定を編集"}</h3>
+  openSheet(`<div id="cfWrap"><h3>${opts.hoursOnly?"営業時間・会長不在":isNew?"予定を追加":"予定を編集"}</h3>
+    <div id="absWrap"></div>
     <label class="f">日付<input type="date" id="cDate" value="${esc(date0)}"></label>
     <div class="fsec"><div class="fsec-h">🕐 ジムの営業時間</div>
       <div class="seg wide" id="hSeg">${[["none","基本どおり"],["open","時間を変える"],["closed","休みにする"]].map(([v,l])=>`<button type="button" data-h="${v}">${l}</button>`).join("")}</div>
@@ -1022,6 +1034,7 @@ function calForm(c, opts={}){
     <div class="row" style="margin-top:8px"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="cSave">保存</button></div></div>`);
   c = {...c};
   const syncInputs = ()=>{
+    if($("#absFrom")) absFrom = $("#absFrom").value; if($("#absTo")) absTo = $("#absTo").value; if($("#absNote")) absNote = $("#absNote").value;
     if($("#hNote")) hNote = $("#hNote").value; if($("#cTime")) c.time = $("#cTime").value; if($("#cPlace")) c.place = $("#cPlace").value; if($("#cMemo")) c.memo = $("#cMemo").value; if($("#cTitle")) c.title = $("#cTitle").value;
     document.querySelectorAll("[data-r]").forEach(el=>{ const [i,k]=el.dataset.r.split(":"); ranges[i][k]=el.value; });
     document.querySelectorAll("[data-sp]").forEach(el=>{ const [i,k]=el.dataset.sp.split(":"); spars[i][k]=el.value; });
@@ -1034,6 +1047,13 @@ function calForm(c, opts={}){
       ranges.map((r,i)=>`<div class="row" style="flex-wrap:nowrap;gap:6px;margin-bottom:6px"><input type="time" data-r="${i}:from" value="${esc(r.from)}" ${inp}><span>〜</span><input type="time" data-r="${i}:to" value="${esc(r.to)}" ${inp}>${ranges.length>1?`<button type="button" class="btn sm danger" data-rdel="${i}">✕</button>`:""}</div>`).join("")
       + `<button type="button" class="btn sm" id="rAdd">＋ 時間帯を追加</button>`
       + `<label class="f" style="margin:10px 0 0">ひとこと <small>任意。例：一斉練習／プロのみ</small><input id="hNote" maxlength="30" value="${esc(hNote)}"></label>`;
+  };
+  const drawAbs = ()=>{
+    $("#absWrap").innerHTML = `<button type="button" class="abs-btn ${absOn?"on":""}" id="absTog">👤 会長不在${absOn?"（オン）":"にする"}</button>`
+      + (absOn ? `<div class="fsec" style="border-color:#8a4fc7"><div class="fsec-h" style="color:#8a4fc7">👤 会長不在</div>
+        <div class="seg wide">${[["1","終日"],["0","時間を指定"]].map(([v,l])=>`<button type="button" class="${(absAll?"1":"0")===v?"on":""}" data-abs="${v}">${l}</button>`).join("")}</div>
+        ${absAll?"":`<div class="row" style="flex-wrap:nowrap;gap:6px;margin-top:8px"><input type="time" id="absFrom" value="${esc(absFrom)}" ${inp}><span>〜</span><input type="time" id="absTo" value="${esc(absTo)}" ${inp}></div>`}
+        <label class="f" style="margin:10px 0 0">理由・メモ <small>任意</small><input id="absNote" maxlength="60" value="${esc(absNote)}" placeholder="例：出張／試合の打ち合わせ"></label></div>` : "");
   };
   const drawType = ()=>{
     if(opts.hoursOnly) return;
@@ -1062,6 +1082,8 @@ function calForm(c, opts={}){
   $("#cfWrap").addEventListener("click", e=>{
     const t = e.target.closest("button"); if(!t) return;
     syncInputs();
+    if(t.id==="absTog"){ absOn = !absOn; drawAbs(); return; }
+    if(t.dataset.abs){ absAll = t.dataset.abs==="1"; drawAbs(); return; }
     if(t.dataset.h){ hMode = t.dataset.h; drawHours(); return; }
     if(t.id==="rAdd"){ ranges.push({from:"",to:""}); drawHours(); return; }
     if(t.dataset.rdel){ ranges.splice(Number(t.dataset.rdel),1); drawHours(); return; }
@@ -1073,12 +1095,16 @@ function calForm(c, opts={}){
     if(t.dataset.spk){ const [i,v]=t.dataset.spk.split(":"); spars[i].kind=v; drawType(); return; }
     if(t.dataset.opk){ const [i,j,v]=t.dataset.opk.split(":"); spars[i].opponents[j].kind=v; drawType(); return; }
   });
-  drawHours(); drawType();
+  drawAbs(); drawHours(); drawType();
   $("#cDate").addEventListener("change", ()=>{ if(hMode!=="open") drawHours(); });
   $("#cSave").addEventListener("click", async ()=>{
     syncInputs();
     const date = $("#cDate").value; if(!date){ $("#cErr").textContent="日付を入れてください"; return; }
     const b = writeBatch(db); let n = 0;
+    if(absOn && !absAll && !absFrom && !absTo){ $("#cErr").textContent="会長不在の時間を入れてください（または「終日」）"; return; }
+    const aid = "absent_"+date;
+    if(absOn){ b.set(doc(db,"calendar",aid), {date, type:"会長不在", allDay:absAll, from:absAll?"":absFrom, to:absAll?"":absTo, note:(absNote||"").trim()}); n++; }
+    else if(absentOf(date)){ b.delete(doc(db,"calendar",aid)); n++; }
     const hid = "hours_"+date;
     if(hMode==="none"){ if(hoursOf(date)){ b.delete(doc(db,"calendar",hid)); n++; } }
     else { b.set(doc(db,"calendar",hid), {date, type:"営業時間", closed: hMode==="closed", ranges: hMode==="open" ? ranges.filter(r=>r.from||r.to) : [], note: (hNote||"").trim()}); n++; }
@@ -1090,10 +1116,10 @@ function calForm(c, opts={}){
         if(type==="スパーリング"){
           data.place = ($("#cPlace")?.value||"").trim();
           data.spars = spars.filter(sp=>((sp.kind||"member")==="gym" ? (sp.gym||sp.name) : sp.memberId) || (sp.opponents||[]).some(o=>o.memberId||o.gym||o.name)).map(sp=>({kind:sp.kind||"member", memberId:(sp.kind||"member")==="member"?(sp.memberId||""):"", gym:(sp.kind||"member")==="gym"?(sp.gym||"").trim():"", name:(sp.kind||"member")==="gym"?(sp.name||"").trim():"", opponents:(sp.opponents||[]).filter(o=>o.memberId||o.gym||o.name||o.rounds).map(o=>({kind:o.kind||"gym", memberId:o.kind==="member"?(o.memberId||""):"", gym:o.kind==="member"?"":(o.gym||"").trim(), name:o.kind==="member"?"":(o.name||"").trim(), rounds:o.rounds?Number(o.rounds):""}))}));
-          if(!data.spars.length){ $("#cErr").textContent="スパーリングする人を選んでください"; return; }
+          if(!data.spars.length){ if(isNew && (absOn || hMode!=="none")){ data.skip = true; } else { $("#cErr").textContent="スパーリングする人を選んでください"; return; } }
         }
         if(type==="その他" && !data.title){ $("#cErr").textContent="タイトルを入れてください"; return; }
-        b.set(ref, data); n++;
+        if(!data.skip){ b.set(ref, data); n++; }
       }
     }
     try{ if(n) await b.commit(); state.calDay = date; state.calMonth = date.slice(0,7); closeSheet(); toast("保存しました"); render(); }
