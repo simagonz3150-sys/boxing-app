@@ -284,7 +284,7 @@ function ageOf(m){
   return m.age || "";
 }
 
-const state = { tab:"members", members:[], events:[], pending:[], manual:null, ranking:null, isAdmin:false, isOwner:false, isManager:false, managerCodes:[], managerDevices:[], isLeader:false, access:"checking", viewCodes:[], viewerDevices:[], support:[], leaderCodes:[], leaderDevices:[], ready:{members:false,events:false,support:false,cal:false}, cal:[], calMonth:null, calDay:null };
+const state = { tab:"calendar", members:[], events:[], pending:[], manual:null, ranking:null, isAdmin:false, isOwner:false, isManager:false, managerCodes:[], managerDevices:[], isLeader:false, access:"checking", viewCodes:[], viewerDevices:[], support:[], leaderCodes:[], leaderDevices:[], ready:{members:false,events:false,support:false,cal:false}, cal:[], calMonth:null, calDay:null };
 const DEFAULT_BOUT_ROLES = ["タイムキーパー","水バケツ準備","救急箱を運ぶ","水バケツを運ぶ"];
 const DEFAULT_COMMON_ROLES = ["会場設営、片付け"];
 const leaderLabel = () => state.leaderLabel || "リーダー";
