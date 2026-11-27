@@ -95,6 +95,8 @@ p.lead{color:var(--muted);font-size:13px;margin:0 0 14px}
 .cd.sel{outline:2px solid var(--accent)}
 .ct{display:block;width:100%;font-size:9px;font-weight:700;color:#fff;border-radius:4px;padding:0 1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;line-height:1.5}
 .cmore{font-size:9px;color:var(--muted)}
+.ct-sp{display:flex;flex-wrap:wrap;justify-content:center;gap:1px;width:100%}
+.ct-sp i{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:#2a6fdb;color:#fff;font-style:normal;font-size:9px;font-weight:900;line-height:1}
 .cflt{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:3px 8px 3px 4px;font-size:11px;font-weight:700;color:var(--muted);opacity:.65}
 .cflt.on{opacity:1;color:var(--ink);border-color:var(--c)}
 .cflt .cbox{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:4px;border:2px solid var(--c);font-style:normal;font-size:11px;font-weight:900;color:#fff;line-height:1}
@@ -961,6 +963,9 @@ const hoursHtml = h => h.closed ? esc(h.note||"休み") : ((h.ranges||[]).filter
 const nameOf = id => { const m = state.members.find(x=>x.id===id); return m ? `${m.sei} ${m.mei||""}`.trim() : "（削除された人）"; };
 const mchip = id => { const m=state.members.find(z=>z.id===id)||{sei:"?"}; return `<span class="mchip">${m.photo?`<img src="${esc(m.photo)}" alt="">`:`<i>${esc((m.sei||"?").slice(0,1))}</i>`}${esc(nameOf(id))}</span>`; };
 const hoursText = h => h.closed ? "休み" : (h.ranges||[]).filter(r=>r.from||r.to).map(r=>`${r.from||""}〜${r.to||""}`).join("　") || "未設定";
+const sparMemberIds = c => { const ids = []; const add = id => { if(id && !ids.includes(id)) ids.push(id); };
+  (c.spars||[]).forEach(sp=>{ if((sp.kind||"member")==="member") add(sp.memberId); (sp.opponents||[]).forEach(o=>{ if(o.kind==="member") add(o.memberId); }); });
+  (c.memberIds||[]).forEach(add); return ids; };
 const sparCount = c => (c.spars||[]).length || (c.memberIds||[]).length;
 function sparHtml(c){
   if(!(c.spars||[]).length) return (c.memberIds||[]).length ? `<div class="tags" style="margin-top:6px">${c.memberIds.map(mchip).join("")}</div>` : "";
@@ -988,6 +993,7 @@ function viewCalendar(){
     const irregularOff = off && !(eh.base && eh.closed); const sunOpen = new Date(ds+"T00:00:00").getDay()===0 && !off;
     const ab = calShow("会長不在") && absentOf(ds); const tags = (ab?[`<span class="ct" style="background:#8a4fc7">会長不在</span>`]:[]).concat(irregularOff&&calShow("ジム休み")?[`<span class="ct" style="background:#8f897e">休</span>`]:[]).concat(hol&&!off&&calShow("祝日プロのみ")?[`<span class="ct" style="background:#d98b1a">プロ</span>`]:[]).concat(sunOpen?[`<span class="ct" style="background:#4a7bd0">営業</span>`]:[]).concat(items.map(x=>{ const c = x.kind==="試合" ? "var(--accent)" : (CAL_TYPES[x.kind]||CAL_TYPES["その他"]).c;
         const label = x.kind==="試合" ? "試合" : x.kind==="スパーリング" ? `スパー${sparCount(x.c)||""}` : (x.c.title||"予定");
+        if(x.kind==="スパーリング"){ const ids = sparMemberIds(x.c); if(ids.length) return `<span class="ct-sp">${ids.map(id=>{ const m=state.members.find(z=>z.id===id); return `<i>${esc((m?.sei||"?").slice(0,1))}</i>`; }).join("")}</span>`; }
         return `<span class="ct" style="background:${c}">${esc(label)}</span>`; }));
     h += `<button class="cd ${d.getMonth()!==mo-1?"out":""} ${ds===today?"today":""} ${ds===state.calDay?"sel":""} ${off?"off":""} ${d.getDay()===0||hol?"sun":d.getDay()===6?"sat":""}" data-act="cal-day" data-d="${ds}">
       <span class="cn">${d.getDate()}</span>${tags.slice(0,3).join("")}${tags.length>3?`<span class="cmore">+${tags.length-3}</span>`:""}</button>`;
