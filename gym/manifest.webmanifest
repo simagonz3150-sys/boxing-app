@@ -1,6 +1,6 @@
 {
-  "name": "試合サポートメンバー",
-  "short_name": "試合サポート",
+  "name": "MBGアプリ",
+  "short_name": "MBGアプリ",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
