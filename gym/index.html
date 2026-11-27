@@ -79,6 +79,11 @@ p.lead{color:var(--muted);font-size:13px;margin:0 0 14px}
 .cbout .cb-info{font-size:12px;color:var(--muted)}
 .seg.cside{display:inline-flex;width:100%}
 .seg.cside button{flex:1}
+.seg.cside button.red.on{background:#c62828}
+.seg.cside button.blue.on{background:#1f5fc9}
+.sidepick{display:grid;grid-template-columns:auto 1fr;gap:6px;align-items:center}
+.seg.lr button{padding:8px 11px;font-size:13px}
+.sidetag{display:inline-block;font-size:11px;font-weight:900;background:#141414;color:#fff;border-radius:6px;padding:1px 6px;margin-right:6px}
 .cinfo{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;padding:10px 12px;border-bottom:1px solid var(--line);background:#fafaf7}
 .cinfo b{font-weight:900}
 .cinfo .none{color:#b5b0a6}
@@ -698,7 +703,7 @@ function ticketTypesForm(){
 const evSupport = id => state.support.filter(s=>s.eventId===id);
 function memberOf(sm){ return sm.memberId ? state.members.find(m=>m.id===sm.memberId) : null; }
 /* ---------- セコンド表（試合ごと：セコンド・バンテージ・アップ） ---------- */
-const CORNER_ROLES = [["chief","チーフセコンド"],["second","セコンド"],["cut","カットマン"]];
+const CORNER_ROLES = [["second","セコンド"],["chief","チーフ"],["cut","カットマン"]];
 const CORNER_CATS = ["会長","トレーナー","プロ選手"];
 const cornerOf = (evId, key) => (state.corners?.[evId] || {})[key] || {};
 const cornerFilled = e => boutsOf(e).filter(b=>{ const c = cornerOf(e.id, b.key); return c.chief||c.second||c.cut||c.wrap||c.wrapTime||c.wuTime||c.corner; }).length;
@@ -733,8 +738,10 @@ function viewCorner(){
     return `<div class="cbout">${b.label?`<div class="cb-no">${esc(b.label)}</div>`:""}<div class="cb-vs">${esc(vsText||b.fighter)}</div>${b.detail?`<div class="cb-info">${esc(b.detail)}</div>`:""}
       <dl class="cgrid">
         <div class="csec">セコンド</div>
-        <dt>コーナー</dt><dd>${can?`<span class="seg cside">${["左","右"].map(v=>`<button type="button" class="${c.corner===v?"on":""}" data-cside="${ev.id}|${esc(k)}|${v}">${v}コーナー</button>`).join("")}</span>`:(c.corner?`<span class="val">${esc(c.corner)}コーナー</span>`:`<span class="val none">未定</span>`)}</dd>
-        ${CORNER_ROLES.map(([f,l])=>`<dt>${l}</dt><dd>${can?cornerSelect(ev.id,k,f,c[f]):show(c[f])}</dd>`).join("")}
+        <dt>コーナー</dt><dd>${can?`<span class="seg cside">${["赤","青"].map(v=>`<button type="button" class="${c.corner===v?"on":""} ${v==="赤"?"red":"blue"}" data-cside="${ev.id}|${esc(k)}|corner|${v}">${v}コーナー</button>`).join("")}</span>`:(c.corner?`<span class="val" style="color:${c.corner==="赤"?"#c62828":c.corner==="青"?"#1f5fc9":"inherit"}">${esc(c.corner)}コーナー</span>`:`<span class="val none">未定</span>`)}</dd>
+        ${CORNER_ROLES.map(([f,l])=>{ const sd = c[f+"Side"]||"";
+          return `<dt>${l}</dt><dd>${can?`<div class="sidepick"><span class="seg lr">${["左","右"].map(v=>`<button type="button" class="${sd===v?"on":""}" data-cside="${ev.id}|${esc(k)}|${f}Side|${v}">${v}</button>`).join("")}</span>${cornerSelect(ev.id,k,f,c[f])}</div>`
+            : `${sd?`<span class="sidetag">${sd}</span>`:""}${show(c[f])}`}</dd>`; }).join("")}
         <div class="csec">バンテージ巻き</div>
         <dt>巻く人</dt><dd>${can?cornerSelect(ev.id,k,"wrap",c.wrap):show(c.wrap)}</dd>
         <dt>何時から</dt><dd>${can?`<input type="time" data-cor="${ev.id}|${esc(k)}|wrapTime" value="${esc(c.wrapTime||"")}">`:showT(c.wrapTime)}</dd>
@@ -754,12 +761,12 @@ document.addEventListener("change", async e=>{
 });
 document.addEventListener("click", e=>{
   const b = e.target.closest("[data-cside]"); if(!b) return;
-  const [evId, key, v] = b.dataset.cside.split("|"); const cur = cornerOf(evId, key).corner || "";
-  saveCorner(evId, key, "corner", cur===v ? "" : v);
+  const [evId, key, field, v] = b.dataset.cside.split("|"); const cur = cornerOf(evId, key)[field] || "";
+  saveCorner(evId, key, field, cur===v ? "" : v);
 });
 function cornerInfo(evId, key){
   const c = cornerOf(evId, key); const v = (x, f=y=>y) => x ? `<b>${esc(f(x))}</b>` : `<span class="none">未定</span>`;
-  return `<div class="cinfo"><span>🕐 ウォーミングアップ ${v(c.wuTime)}</span><span>トレーナー ${v(c.wuBy, nameOf)}</span>${c.corner?`<span>🥊 ${esc(c.corner)}コーナー</span>`:""}<button class="btn sm clink" data-act="open-corner" data-id="${evId}">セコンド表</button></div>`;
+  return `<div class="cinfo"><span>🕐 ウォーミングアップ ${v(c.wuTime)}</span><span>トレーナー ${v(c.wuBy, nameOf)}</span>${c.corner?`<span style="color:${c.corner==="赤"?"#c62828":c.corner==="青"?"#1f5fc9":"inherit"};font-weight:900">🥊 ${esc(c.corner)}コーナー</span>`:""}<button class="btn sm clink" data-act="open-corner" data-id="${evId}">セコンド表</button></div>`;
 }
 function viewSupport(){
   const can = canEditSupport();
