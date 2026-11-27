@@ -88,6 +88,19 @@ p.lead{color:var(--muted);font-size:13px;margin:0 0 14px}
 .cinfo b{font-weight:900}
 .cinfo .none{color:#b5b0a6}
 .cinfo .clink{margin-left:auto}
+.faces{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.face{display:flex;gap:12px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 12px;align-items:flex-start}
+.face-img{flex:none;width:64px;height:64px;border-radius:12px;overflow:hidden;background:#e8e4dc;display:flex;align-items:center;justify-content:center}
+.face-img img{width:100%;height:100%;object-fit:cover}
+.face-img i{font-style:normal;font-weight:900;font-size:26px;color:#8f897e}
+.face-b{flex:1;min-width:0}
+.face-n{font-weight:900;font-size:16px}
+.face-lead{font-size:10px;background:var(--accent);color:#fff;border-radius:99px;padding:1px 7px;margin-left:6px;vertical-align:2px}
+.face-k{font-size:11px;color:var(--muted)}
+.face-r{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.face-r span{font-size:12px;font-weight:700;background:#f3f1ec;border-radius:8px;padding:3px 8px}
+.face-r span em{font-style:normal;font-size:10px;color:var(--muted);margin-right:5px;font-weight:700}
+.face-r span.none{color:#b5b0a6;font-weight:400;background:none;padding:0}
 .cgrid{display:grid;grid-template-columns:96px 1fr;gap:6px 8px;align-items:center;margin-top:10px}
 .cgrid dt{font-size:12px;font-weight:900;color:#4a4740}
 .cgrid dd{margin:0;min-width:0}
@@ -719,6 +732,20 @@ async function saveCorner(evId, key, field, val){
   try{ await setDoc(doc(db,"support","cor_"+evId), {eventId:"_cor", b: cur}); toast("保存しました"); }
   catch(err){ toast(leaderErr(err)); }
 }
+function supFacesSheet(evId){
+  const ev = state.events.find(e=>e.id===evId); const asg = (state.assign||{})[evId] || {};
+  const bouts = boutsOf(ev); const leaders = new Set(asg["common|リーダー"]||[]);
+  const rolesOf = smId => { const out = [];
+    Object.entries(asg).forEach(([key, ids])=>{ if(!(ids||[]).includes(smId)) return; const i = key.lastIndexOf("|"); const where = key.slice(0,i), role = key.slice(i+1);
+      if(where==="common") out.push({w:"共通", r:roleLabel(role), o:-1}); else { const bi = bouts.findIndex(b=>b.key===where); if(bi<0) return; const b = bouts[bi]; out.push({w:`${b.label||""} ${b.fighter}`.trim(), r:role, o:bi}); } });
+    return out.sort((a,b)=>a.o-b.o); };
+  const list = evSupport(evId).slice().sort((a,b)=>leaders.has(b.id)-leaders.has(a.id));
+  openSheet(`<h3>サポートメンバー（${list.length}人）</h3><p class="note">${esc(fmtDate(ev?.date||""))} ${esc(ev?.title||"")}</p>
+    <div class="faces">${list.map(sm=>{ const m = memberOf(sm) || {}; const nm = m.sei ? `${m.sei} ${m.mei||""}`.trim() : (sm.name||"?"); const rs = rolesOf(sm.id);
+      return `<div class="face"><div class="face-img">${m.photo?`<img src="${esc(m.photo)}" alt="">`:`<i>${esc(nm.slice(0,1))}</i>`}</div>
+        <div class="face-b"><div class="face-n">${esc(nm)}${leaders.has(sm.id)?`<b class="face-lead">${esc(leaderLabel())}</b>`:""}</div>${m.kana?`<div class="face-k">${esc(m.kana)}</div>`:""}
+        <div class="face-r">${rs.length?rs.map(x=>`<span><em>${esc(x.w)}</em>${esc(x.r)}</span>`).join(""):`<span class="none">役割 未定</span>`}</div></div></div>`; }).join("") || `<div class="empty">まだサポートメンバーがいません。</div>`}</div>`);
+}
 function viewCorner(){
   const ev = state.events.find(e=>e.id===state.cornerEventId);
   let h = `<div style="margin-top:14px"><button class="btn sm" data-act="back-events">← 試合予定</button></div>`;
@@ -728,7 +755,7 @@ function viewCorner(){
     <div class="card" style="margin-top:8px;padding:10px 14px"><div style="font-weight:900">${esc(fmtDate(ev.date))}${ev.time?` ${esc(ev.time)} 開始`:""}</div><div class="sub" style="margin-top:2px">${esc(ev.title||"試合")}${ev.venue?`・${esc(ev.venue)}`:""}</div></div>
     <p class="lead" style="margin-top:8px">上からメインの順です。${can?"選ぶとすぐ保存されます。":""}</p>`;
   if(!state.ready.support) return h + `<div class="loading">読み込み中…</div>`;
-  h += `<div class="cbout" style="border-left-color:#2a6fdb"><div class="row"><div class="cb-vs grow">👥 サポート（共通）</div><button class="btn sm" data-act="open-support" data-id="${ev.id}">サポートを見る</button></div>
+  h += `<div class="cbout" style="border-left-color:#2a6fdb"><div class="row" style="flex-wrap:nowrap;gap:5px"><div class="cb-vs" style="white-space:nowrap;font-size:14px">👥 サポート（共通）</div><button class="btn sm" data-act="sup-faces" data-id="${ev.id}" style="padding:5px 8px;flex:none">🪪 メンバー</button><span class="grow"></span><button class="btn sm" data-act="open-support" data-id="${ev.id}" style="padding:5px 8px;flex:none">サポートへ</button></div>
     <dl class="cgrid">${supRows(ev.id, "common", commonRoles())}</dl></div>`;
   const show = id => id ? `<span class="val">${esc(nameOf(id))}</span>` : `<span class="val none">未定</span>`;
   const showT = t => t ? `<span class="val">${esc(t)}</span>` : `<span class="val none">未定</span>`;
@@ -1524,6 +1551,7 @@ document.addEventListener("click", async e=>{
     case "ticket-edit": { const e=state.events.find(x=>x.id===state.ticketEventId); const tk=(e?.tickets||[]).find(x=>x.id===t.dataset.tid); if(tk) ticketForm(tk); break; }
     case "ticket-types": ticketTypesForm(); break;
     case "open-support": state.supportEventId=id; state.tab="support"; render(); window.scrollTo(0,0); break;
+    case "sup-faces": supFacesSheet(id); break;
     case "open-corner": state.cornerEventId=id; state.tab="corner"; render(); window.scrollTo(0,0); break;
     case "back-events": state.tab="events"; render(); window.scrollTo(0,0); break;
     case "support-new": supportPicker(); break;
