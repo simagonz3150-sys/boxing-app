@@ -70,6 +70,21 @@ p.lead{color:var(--muted);font-size:13px;margin:0 0 14px}
 .ev-date{display:flex;align-items:center;gap:5px}
 .ev-date b{font-size:16px;font-weight:900;white-space:nowrap}
 .ev-year{font-size:11px;color:var(--muted);font-weight:700;margin-bottom:-2px}
+.ev-vrow{display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap;margin-top:4px}
+.evbtn.corner-btn{background:#1a1a1a;color:#fff;border-color:#1a1a1a;padding:7px 12px;font-size:12.5px}
+.evbtn.corner-btn em{background:#fff;color:#1a1a1a}
+.cbout{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:12px;border-left:5px solid var(--accent)}
+.cbout .cb-no{font-size:12px;font-weight:900;color:var(--accent)}
+.cbout .cb-vs{font-weight:900;font-size:15px;line-height:1.4}
+.cbout .cb-info{font-size:12px;color:var(--muted)}
+.cgrid{display:grid;grid-template-columns:96px 1fr;gap:6px 8px;align-items:center;margin-top:10px}
+.cgrid dt{font-size:12px;font-weight:900;color:#4a4740}
+.cgrid dd{margin:0;min-width:0}
+.cgrid select,.cgrid input{width:100%;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#fff;font-size:16px}
+.cgrid .pair{display:grid;grid-template-columns:1.4fr 1fr;gap:6px}
+.cgrid .val{font-weight:700}
+.cgrid .val.none{color:#b5b0a6;font-weight:400}
+.csec{grid-column:1/-1;font-size:11px;font-weight:900;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px;margin-top:2px}
 .evbtn{flex:none;border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 7px;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap}
 .evbtn em{font-style:normal;background:var(--accent);color:#fff;border-radius:99px;padding:0 5px;margin-left:3px;font-size:10.5px}
 .ev-date span{color:var(--muted);font-size:13px;white-space:nowrap}
@@ -394,10 +409,11 @@ function startData(){
     state.commonRoles = Array.isArray(cfg.commonRoles) ? cfg.commonRoles : null;
     state.leaderLabel = (typeof cfg.leaderLabel==="string" && cfg.leaderLabel.trim()) ? cfg.leaderLabel.trim() : null;
     state.checkItems = Array.isArray(cfg.checkItems) ? cfg.checkItems : null;
+    state.corners = {}; snap.docs.filter(d=>d.id.startsWith("cor_")).forEach(d=>{ state.corners[d.id.slice(4)] = d.data().b || {}; });
     state.plans = {}; snap.docs.filter(d=>d.id.startsWith("plan_")).forEach(d=>{ state.plans[d.id.slice(5)] = d.data(); });
     state.checks = {}; snap.docs.filter(d=>d.id.startsWith("chk_")).forEach(d=>{ state.checks[d.id.slice(4)] = d.data().c || {}; });
     state.assign = {}; snap.docs.filter(d=>d.id.startsWith("asg_")).forEach(d=>{ state.assign[d.id.slice(4)] = d.data().a || {}; });
-    state.support = snap.docs.filter(d=>d.id!=="_config" && !d.id.startsWith("asg_") && !d.id.startsWith("chk_") && !d.id.startsWith("plan_")).map(d=>({id:d.id,...d.data()})).sort((a,b)=>{
+    state.support = snap.docs.filter(d=>d.id!=="_config" && !d.id.startsWith("asg_") && !d.id.startsWith("chk_") && !d.id.startsWith("plan_") && !d.id.startsWith("cor_")).map(d=>({id:d.id,...d.data()})).sort((a,b)=>{
       const ma=memberOf(a), mb=memberOf(b); return (ma?.kana||a.name||"").localeCompare(mb?.kana||b.name||"","ja"); });
     state.ready.support = true; render();
   }, ()=>{ state.ready.support = true; render(); }));
@@ -450,7 +466,7 @@ onAuthStateChanged(auth, async user=>{
 function renderTabs(){
   const tabs = [["members","所属者"],["calendar","カレンダー"],["events","試合予定"],["ranking","ランキング"],["manual","手順書"]];
   if(state.isAdmin) tabs.push(["pending","申請"]);
-  $("#tabs").innerHTML = tabs.map(([k,l])=>`<button data-tab="${k}" class="${state.tab===k||(k==="events"&&(state.tab==="support"||state.tab==="tickets"))?"on":""}">${l}${k==="pending"&&state.pending.length?`<span class="dot">${state.pending.length}</span>`:""}</button>`).join("");
+  $("#tabs").innerHTML = tabs.map(([k,l])=>`<button data-tab="${k}" class="${state.tab===k||(k==="events"&&(state.tab==="support"||state.tab==="tickets"||state.tab==="corner"))?"on":""}">${l}${k==="pending"&&state.pending.length?`<span class="dot">${state.pending.length}</span>`:""}</button>`).join("");
 }
 function render(){
   $("#mgrBtn").hidden = state.isAdmin || state.access!=="ok";
@@ -497,6 +513,8 @@ function render(){
   } else if(state.tab==="tickets"){
     v.innerHTML = viewTickets();
     if(state.isAdmin){ fab.hidden=false; fab.textContent="＋ 購入者を追加"; fab.dataset.act="ticket-new"; }
+  } else if(state.tab==="corner"){
+    v.innerHTML = viewCorner();
   } else if(state.tab==="support"){
     v.innerHTML = viewSupport();
     if(state.isAdmin||state.isLeader){ fab.hidden=false; fab.textContent="＋ メンバーを追加"; fab.dataset.act="support-new"; }
@@ -549,7 +567,8 @@ function eventCard(e, past){
       <button class="evbtn" data-act="open-support" data-id="${e.id}">👥 サポート${evSupport(e.id).length?`<em>${evSupport(e.id).length}</em>`:""}</button></div>
     ${e.time?`<div class="sub" style="margin-top:2px">${esc(e.time)} 開始</div>`:""}
     <div class="ev-title">${esc(e.title||"試合")}</div>
-    ${e.venue?`<div class="sub"><a class="venue" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.venue)}" target="_blank" rel="noopener">📍 ${esc(e.venue)}<small>地図</small></a></div>`:""}
+    <div class="ev-vrow">${e.venue?`<div class="sub" style="margin:0"><a class="venue" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.venue)}" target="_blank" rel="noopener">📍 ${esc(e.venue)}<small>地図</small></a></div>`:"<span></span>"}
+      ${boutsOf(e).length?`<button class="evbtn corner-btn" data-act="open-corner" data-id="${e.id}">🥊 セコンド表${cornerFilled(e)?`<em>${cornerFilled(e)}/${boutsOf(e).length}</em>`:""}</button>`:""}</div>
     ${e.bouts?`<div class="ev-block"><h4>出場選手</h4>${boutsHtml(e.bouts)}</div>`:""}
     ${assigns.length?`<div class="ev-block"><h4>サポート担当</h4><dl class="assign">${assigns.map(a=>`<dt>${esc(a.role)}</dt><dd>${esc(a.name)}</dd>`).join("")}</dl></div>`:""}
     ${e.memo?`<div class="ev-block"><h4>メモ</h4><div class="pre">${esc(e.memo)}</div></div>`:""}
@@ -672,6 +691,50 @@ function ticketTypesForm(){
 }
 const evSupport = id => state.support.filter(s=>s.eventId===id);
 function memberOf(sm){ return sm.memberId ? state.members.find(m=>m.id===sm.memberId) : null; }
+/* ---------- セコンド表（試合ごと：セコンド・バンテージ・アップ） ---------- */
+const CORNER_ROLES = [["chief","チーフセコンド"],["second","セコンド"],["cut","カットマン"]];
+const CORNER_CATS = ["会長","トレーナー","プロ選手"];
+const cornerOf = (evId, key) => (state.corners?.[evId] || {})[key] || {};
+const cornerFilled = e => boutsOf(e).filter(b=>{ const c = cornerOf(e.id, b.key); return c.chief||c.second||c.cut||c.wrap||c.wrapTime||c.wuTime; }).length;
+function cornerSelect(evId, key, field, val){
+  const groups = CORNER_CATS.map(cat=>{ const ms = state.members.filter(m=>catOf(m)===cat); return ms.length ? `<optgroup label="${cat}">${ms.map(m=>`<option value="${m.id}" ${m.id===val?"selected":""}>${esc(m.sei)} ${esc(m.mei||"")}</option>`).join("")}</optgroup>` : ""; }).join("");
+  const extra = val && !state.members.some(m=>m.id===val && CORNER_CATS.includes(catOf(m))) ? `<option value="${esc(val)}" selected>${esc(nameOf(val))}</option>` : "";
+  return `<select data-cor="${evId}|${esc(key)}|${field}"><option value="">未定</option>${extra}${groups}</select>`;
+}
+function viewCorner(){
+  const ev = state.events.find(e=>e.id===state.cornerEventId);
+  let h = `<div style="margin-top:14px"><button class="btn sm" data-act="back-events">← 試合予定</button></div>`;
+  if(!ev) return h + `<div class="empty">試合が見つかりません。</div>`;
+  const can = canEditSupport();
+  h += `<div class="row" style="margin-top:12px"><h2 class="sec" style="margin:0">セコンド表</h2>${can?`<span class="tag rank">編集できます</span>`:""}</div>
+    <div class="card" style="margin-top:8px;padding:10px 14px"><div style="font-weight:900">${esc(fmtDate(ev.date))}${ev.time?` ${esc(ev.time)} 開始`:""}</div><div class="sub" style="margin-top:2px">${esc(ev.title||"試合")}${ev.venue?`・${esc(ev.venue)}`:""}</div></div>
+    <p class="lead" style="margin-top:8px">上からメインの順です。${can?"選ぶとすぐ保存されます。":""}</p>`;
+  if(!state.ready.support) return h + `<div class="loading">読み込み中…</div>`;
+  const show = id => id ? `<span class="val">${esc(nameOf(id))}</span>` : `<span class="val none">未定</span>`;
+  const showT = t => t ? `<span class="val">${esc(t)}</span>` : `<span class="val none">未定</span>`;
+  h += boutsOf(ev).map(b=>{ const c = cornerOf(ev.id, b.key), k = b.key;
+    const line = (ev.bouts||"").split("\n").map(l=>l.trim()).find(l=>{ const p=l.split(/[｜|]/).map(x=>x.trim()); return ((p.length>=2?p[1]:p[0]).split(/\s+vs\.?\s+/i)[0].trim())===b.fighter; }) || "";
+    const p = line.split(/[｜|]/).map(x=>x.trim()); const vsText = p.length>=2 ? p[1] : p[0];
+    return `<div class="cbout">${b.label?`<div class="cb-no">${esc(b.label)}</div>`:""}<div class="cb-vs">${esc(vsText||b.fighter)}</div>${b.detail?`<div class="cb-info">${esc(b.detail)}</div>`:""}
+      <dl class="cgrid">
+        <div class="csec">セコンド</div>
+        ${CORNER_ROLES.map(([f,l])=>`<dt>${l}</dt><dd>${can?cornerSelect(ev.id,k,f,c[f]):show(c[f])}</dd>`).join("")}
+        <div class="csec">バンテージ巻き</div>
+        <dt>巻く人</dt><dd>${can?cornerSelect(ev.id,k,"wrap",c.wrap):show(c.wrap)}</dd>
+        <dt>何時から</dt><dd>${can?`<input type="time" data-cor="${ev.id}|${esc(k)}|wrapTime" value="${esc(c.wrapTime||"")}">`:showT(c.wrapTime)}</dd>
+        <div class="csec">ウォーミングアップ</div>
+        <dt>何時予定</dt><dd>${can?`<input type="time" data-cor="${ev.id}|${esc(k)}|wuTime" value="${esc(c.wuTime||"")}">`:showT(c.wuTime)}</dd>
+        ${can||c.memo?`<div class="csec">メモ</div><dd style="grid-column:1/-1">${can?`<input data-cor="${ev.id}|${esc(k)}|memo" maxlength="80" value="${esc(c.memo||"")}" placeholder="例：計量後に集合／氷を多めに">`:`<span class="val" style="font-weight:400">${esc(c.memo)}</span>`}</dd>`:""}
+      </dl></div>`; }).join("") || `<div class="empty">出場選手がまだ入っていません。</div>`;
+  return h;
+}
+document.addEventListener("change", async e=>{
+  const el = e.target.closest("[data-cor]"); if(!el) return;
+  const [evId, key, field] = el.dataset.cor.split("|");
+  const cur = {...(state.corners?.[evId] || {})}; cur[key] = {...(cur[key]||{}), [field]: el.value.trim()};
+  try{ await setDoc(doc(db,"support","cor_"+evId), {eventId:"_cor", b: cur}); toast("保存しました"); }
+  catch(err){ toast(leaderErr(err)); }
+});
 function viewSupport(){
   const can = canEditSupport();
   const ev = state.events.find(e=>e.id===state.supportEventId);
@@ -1428,6 +1491,7 @@ document.addEventListener("click", async e=>{
     case "ticket-edit": { const e=state.events.find(x=>x.id===state.ticketEventId); const tk=(e?.tickets||[]).find(x=>x.id===t.dataset.tid); if(tk) ticketForm(tk); break; }
     case "ticket-types": ticketTypesForm(); break;
     case "open-support": state.supportEventId=id; state.tab="support"; render(); window.scrollTo(0,0); break;
+    case "open-corner": state.cornerEventId=id; state.tab="corner"; render(); window.scrollTo(0,0); break;
     case "back-events": state.tab="events"; render(); window.scrollTo(0,0); break;
     case "support-new": supportPicker(); break;
     case "roles-edit": rolesForm(); break;
