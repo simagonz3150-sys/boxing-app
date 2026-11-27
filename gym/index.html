@@ -902,6 +902,31 @@ function leaderEnterForm(){
 const CAL_TYPES = { "休み":{c:"#8f897e",short:"休"}, "スパーリング":{c:"#2a6fdb",short:"スパー"}, "その他":{c:"#1f7a4d",short:"予定"} };
 const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const hoursOf = date => state.cal.find(c=>c.id==="hours_"+date);
+/* 基本の営業時間（日付ごとの設定がない日に使う） */
+const _hol = {};
+function jpHolidays(y){
+  if(_hol[y]) return _hol[y];
+  const H = {}; const k = (m,d)=>`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+  const nthMon = (m,n)=>{ const f=new Date(y,m-1,1).getDay(); return 1+((8-f)%7)+(n-1)*7; };
+  [[1,1,"元日"],[2,11,"建国記念の日"],[2,23,"天皇誕生日"],[4,29,"昭和の日"],[5,3,"憲法記念日"],[5,4,"みどりの日"],[5,5,"こどもの日"],[8,11,"山の日"],[11,3,"文化の日"],[11,23,"勤労感謝の日"]].forEach(([m,d,n])=>H[k(m,d)]=n);
+  H[k(1,nthMon(1,2))]="成人の日"; H[k(7,nthMon(7,3))]="海の日"; H[k(9,nthMon(9,3))]="敬老の日"; H[k(10,nthMon(10,2))]="スポーツの日";
+  const q = Math.floor((y-1980)/4);
+  H[k(3,Math.floor(20.8431+0.242194*(y-1980)-q))]="春分の日"; H[k(9,Math.floor(23.2488+0.242194*(y-1980)-q))]="秋分の日";
+  const keys = Object.keys(H).sort();
+  keys.forEach(d=>{ const t=new Date(d+"T00:00:00"); const nx=new Date(t); nx.setDate(t.getDate()+2); const mid=new Date(t); mid.setDate(t.getDate()+1);
+    if(H[ymd(nx)] && !H[ymd(mid)] && mid.getDay()!==0) H[ymd(mid)]="国民の休日"; });
+  Object.keys(H).sort().forEach(d=>{ const t=new Date(d+"T00:00:00"); if(t.getDay()===0){ const n=new Date(t); do{ n.setDate(n.getDate()+1); }while(H[ymd(n)]); H[ymd(n)]="振替休日"; } });
+  return (_hol[y] = H);
+}
+const holidayOf = date => jpHolidays(Number(date.slice(0,4)))[date] || "";
+function baseHours(date){
+  const w = new Date(date+"T00:00:00").getDay(), hol = holidayOf(date);
+  if(hol) return {closed:false, ranges:[], note:`祝日（プロのみ）`, holiday:hol};
+  if(w===0) return {closed:true, ranges:[], note:"定休日"};
+  if(w===6) return {closed:false, ranges:[{from:"16:00",to:""}], note:"一斉練習"};
+  return {closed:false, ranges:[{from:"17:00",to:"21:00"}], note:""};
+}
+const effHours = date => hoursOf(date) || {...baseHours(date), base:true};
 const isHours = c => c.id && c.id.startsWith("hours_");
 function dayItems(date){
   const out = [];
@@ -909,7 +934,8 @@ function dayItems(date){
   state.cal.filter(c=>c.date===date && !isHours(c)).sort((a,b)=>(a.time||"").localeCompare(b.time||"")).forEach(c=>out.push({kind:c.type||"その他", c}));
   return out;
 }
-const isClosed = date => { const h = hoursOf(date); return (h && h.closed) || state.cal.some(c=>c.date===date && c.type==="休み"); };
+const isClosed = date => effHours(date).closed || state.cal.some(c=>c.date===date && c.type==="休み");
+const hoursHtml = h => h.closed ? esc(h.note||"休み") : ((h.ranges||[]).filter(r=>r.from||r.to).map(r=>`<span style="white-space:nowrap;margin-right:10px">${esc(r.from||"")}〜${esc(r.to||"")}</span>`).join("") + (h.note?`<span style="white-space:nowrap">${esc(h.note)}</span>`:"")) || "未設定";
 const nameOf = id => { const m = state.members.find(x=>x.id===id); return m ? `${m.sei} ${m.mei||""}`.trim() : "（削除された人）"; };
 const mchip = id => { const m=state.members.find(z=>z.id===id)||{sei:"?"}; return `<span class="mchip">${m.photo?`<img src="${esc(m.photo)}" alt="">`:`<i>${esc((m.sei||"?").slice(0,1))}</i>`}${esc(nameOf(id))}</span>`; };
 const hoursText = h => h.closed ? "休み" : (h.ranges||[]).filter(r=>r.from||r.to).map(r=>`${r.from||""}〜${r.to||""}`).join("　") || "未設定";
@@ -926,24 +952,26 @@ function viewCalendar(){
   const [y,mo] = state.calMonth.split("-").map(Number);
   const first = new Date(y, mo-1, 1), start = new Date(y, mo-1, 1 - first.getDay());
   let h = `<div class="row" style="margin-top:22px"><button class="btn sm" data-act="cal-move" data-d="-1">◀</button><h2 class="sec" style="margin:0;flex:1;text-align:center">${y}年${mo}月</h2><button class="btn sm" data-act="cal-move" data-d="1">▶</button></div>
-    <div class="row" style="justify-content:center;margin:8px 0 10px;gap:10px;font-size:11px;color:var(--muted)">
-      <span><i class="cdot" style="background:var(--accent)"></i>試合</span><span><i class="cdot" style="background:#8f897e"></i>ジム休み</span><span><i class="cdot" style="background:#2a6fdb"></i>スパーリング</span><span><i class="cdot" style="background:#1f7a4d"></i>その他</span>
+    <div class="row" style="justify-content:center;margin:8px 0 10px;gap:4px 10px;font-size:11px;color:var(--muted)">
+      <span><i class="cdot" style="background:var(--accent)"></i>試合</span><span><i class="cdot" style="background:#8f897e"></i>ジム休み</span><span><i class="cdot" style="background:#2a6fdb"></i>スパーリング</span><span><i class="cdot" style="background:#1f7a4d"></i>その他</span><span><i class="cdot" style="background:#d98b1a"></i>祝日プロのみ</span>
       ${state.calMonth!==today.slice(0,7)?`<button class="btn sm" data-act="cal-today" style="padding:2px 8px">今日</button>`:""}</div>
     <div class="cal">${["日","月","火","水","木","金","土"].map((w,i)=>`<div class="cw ${i===0?"sun":i===6?"sat":""}">${w}</div>`).join("")}`;
   for(let i=0;i<42;i++){
     const d = new Date(start); d.setDate(start.getDate()+i); const ds = ymd(d);
     if(i>=35 && d.getMonth()!==mo-1) break;
-    const items = dayItems(ds).filter(x=>x.kind!=="休み"); const off = isClosed(ds);
-    const tags = (off?[`<span class="ct" style="background:#8f897e">休</span>`]:[]).concat(items.map(x=>{ const c = x.kind==="試合" ? "var(--accent)" : (CAL_TYPES[x.kind]||CAL_TYPES["その他"]).c;
+    const items = dayItems(ds).filter(x=>x.kind!=="休み"); const off = isClosed(ds), eh = effHours(ds), hol = holidayOf(ds);
+    const irregularOff = off && !(eh.base && eh.closed); const sunOpen = new Date(ds+"T00:00:00").getDay()===0 && !off;
+    const tags = (irregularOff?[`<span class="ct" style="background:#8f897e">休</span>`]:[]).concat(hol&&!off?[`<span class="ct" style="background:#d98b1a">プロ</span>`]:[]).concat(sunOpen?[`<span class="ct" style="background:#4a7bd0">営業</span>`]:[]).concat(items.map(x=>{ const c = x.kind==="試合" ? "var(--accent)" : (CAL_TYPES[x.kind]||CAL_TYPES["その他"]).c;
         const label = x.kind==="試合" ? "試合" : x.kind==="スパーリング" ? `スパー${sparCount(x.c)||""}` : (x.c.title||"予定");
         return `<span class="ct" style="background:${c}">${esc(label)}</span>`; }));
-    h += `<button class="cd ${d.getMonth()!==mo-1?"out":""} ${ds===today?"today":""} ${ds===state.calDay?"sel":""} ${off?"off":""} ${d.getDay()===0?"sun":d.getDay()===6?"sat":""}" data-act="cal-day" data-d="${ds}">
+    h += `<button class="cd ${d.getMonth()!==mo-1?"out":""} ${ds===today?"today":""} ${ds===state.calDay?"sel":""} ${off?"off":""} ${d.getDay()===0||hol?"sun":d.getDay()===6?"sat":""}" data-act="cal-day" data-d="${ds}">
       <span class="cn">${d.getDate()}</span>${tags.slice(0,3).join("")}${tags.length>3?`<span class="cmore">+${tags.length-3}</span>`:""}</button>`;
   }
   h += `</div>`;
   const sel = state.calDay, items = dayItems(sel), hr = hoursOf(sel);
   h += `<div class="group-h" style="margin-top:16px">${esc(fmtDate(sel))}</div>`;
-  h += `<div class="card hours ${isClosed(sel)?"closed":""}"><span class="ci-type" style="margin:0">${isClosed(sel)?"🚪 ジム休み":"🕐 営業時間"}</span><span class="grow" style="font-weight:900">${hr ? (hr.closed ? "休み" : ((hr.ranges||[]).filter(r=>r.from||r.to).map(r=>`<span style="white-space:nowrap;margin-right:10px">${esc(r.from||"")}〜${esc(r.to||"")}</span>`).join("") || "未設定")) : (isClosed(sel)?"":"<span class='bnone'>未設定</span>")}</span>${state.isAdmin?`<button class="btn sm" data-act="cal-hours">編集</button>`:""}</div>`;
+  const eh = effHours(sel), holN = holidayOf(sel);
+  h += `<div class="card hours ${isClosed(sel)?"closed":""}"><span class="ci-type" style="margin:0">${isClosed(sel)?"🚪 休み":"🕐 営業"}</span><span class="grow" style="font-weight:900">${hoursHtml(eh)}${holN?`<div class="sub" style="margin:0;font-weight:400">${esc(holN)}</div>`:""}${eh.base?`<div class="sub" style="margin:0;font-weight:400">基本の営業時間</div>`:`<div class="sub" style="margin:0;font-weight:400;color:#4a7bd0">この日だけの設定</div>`}</span>${state.isAdmin?`<button class="btn sm" data-act="cal-hours">変更</button>`:""}</div>`;
   const list = items.filter(x=>x.kind!=="休み");
   h += list.length ? `<div class="list" style="margin-top:8px">${list.map(x=>{
       if(x.kind==="試合"){ const e=x.ev; return `<div class="card cal-item" style="border-left:5px solid var(--accent)"><div class="ci-type" style="color:var(--accent)">🥊 試合</div><div style="font-weight:900">${esc(e.title||"試合")}</div><div class="sub">${e.time?esc(e.time)+" 開始・":""}${esc(e.venue||"")}</div>
@@ -967,14 +995,16 @@ function calForm(c, opts={}){
   const isNew = !c.id; const date0 = c.date || state.calDay || todayStr();
   const hr0 = hoursOf(date0);
   let hMode = hr0 ? (hr0.closed ? "closed" : "open") : "none";
-  let ranges = hr0 && !hr0.closed && (hr0.ranges||[]).length ? hr0.ranges.map(r=>({...r})) : [{from:"",to:""}];
+  const bh0 = baseHours(date0);
+  let ranges = hr0 && !hr0.closed && (hr0.ranges||[]).length ? hr0.ranges.map(r=>({...r})) : ((bh0.ranges||[]).length ? bh0.ranges.map(r=>({...r})) : [{from:"17:00",to:"21:00"}]);
+  let hNote = hr0 ? (hr0.note||"") : (bh0.closed ? "" : (bh0.note||""));
   let type = opts.hoursOnly ? "なし" : (c.type==="休み" ? "なし" : (c.type || "スパーリング"));
   let spars = (c.spars||[]).length ? JSON.parse(JSON.stringify(c.spars)) : ((c.memberIds||[]).length ? c.memberIds.map(id=>({memberId:id, opponents:[]})) : [{memberId:"", opponents:[{kind:"gym", gym:"", name:"", rounds:""}]}]);
   const inp = 'style="width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:#fff;font-size:16px"';
   openSheet(`<div id="cfWrap"><h3>${opts.hoursOnly?"営業時間を編集":isNew?"予定を追加":"予定を編集"}</h3>
     <label class="f">日付<input type="date" id="cDate" value="${esc(date0)}"></label>
     <div class="fsec"><div class="fsec-h">🕐 ジムの営業時間</div>
-      <div class="seg wide" id="hSeg">${[["open","時間を入れる"],["closed","休み"],["none","未設定"]].map(([v,l])=>`<button type="button" data-h="${v}">${l}</button>`).join("")}</div>
+      <div class="seg wide" id="hSeg">${[["none","基本どおり"],["open","時間を変える"],["closed","休みにする"]].map(([v,l])=>`<button type="button" data-h="${v}">${l}</button>`).join("")}</div>
       <div id="hRanges" style="margin-top:8px"></div></div>
     ${opts.hoursOnly?"":`<div class="fsec"><div class="fsec-h">📌 予定</div>
       <div class="seg wide" id="tSeg">${[["スパーリング","スパーリング"],["その他","その他"],["なし","予定なし"]].map(([v,l])=>`<button type="button" data-t="${v}">${l}</button>`).join("")}</div>
@@ -983,16 +1013,18 @@ function calForm(c, opts={}){
     <div class="row" style="margin-top:8px"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="cSave">保存</button></div></div>`);
   c = {...c};
   const syncInputs = ()=>{
-    if($("#cTime")) c.time = $("#cTime").value; if($("#cMemo")) c.memo = $("#cMemo").value; if($("#cTitle")) c.title = $("#cTitle").value;
+    if($("#hNote")) hNote = $("#hNote").value; if($("#cTime")) c.time = $("#cTime").value; if($("#cMemo")) c.memo = $("#cMemo").value; if($("#cTitle")) c.title = $("#cTitle").value;
     document.querySelectorAll("[data-r]").forEach(el=>{ const [i,k]=el.dataset.r.split(":"); ranges[i][k]=el.value; });
     document.querySelectorAll("[data-sp]").forEach(el=>{ const [i,k]=el.dataset.sp.split(":"); spars[i][k]=el.value; });
     document.querySelectorAll("[data-op]").forEach(el=>{ const [i,j,k]=el.dataset.op.split(":"); spars[i].opponents[j][k]=el.value; });
   };
   const drawHours = ()=>{
     document.querySelectorAll("#hSeg button").forEach(b=>b.classList.toggle("on", b.dataset.h===hMode));
-    $("#hRanges").innerHTML = hMode!=="open" ? (hMode==="closed"?`<div class="sub" style="margin:0">この日はジム休みとして表示されます。</div>`:"") :
+    const bh = baseHours($("#cDate")?.value || date0);
+    $("#hRanges").innerHTML = hMode!=="open" ? (hMode==="closed"?`<div class="sub" style="margin:0">この日はジム休みとして表示されます。</div>`:`<div class="sub" style="margin:0">基本：${hoursHtml(bh)}</div>`) :
       ranges.map((r,i)=>`<div class="row" style="flex-wrap:nowrap;gap:6px;margin-bottom:6px"><input type="time" data-r="${i}:from" value="${esc(r.from)}" ${inp}><span>〜</span><input type="time" data-r="${i}:to" value="${esc(r.to)}" ${inp}>${ranges.length>1?`<button type="button" class="btn sm danger" data-rdel="${i}">✕</button>`:""}</div>`).join("")
-      + `<button type="button" class="btn sm" id="rAdd">＋ 時間帯を追加</button>`;
+      + `<button type="button" class="btn sm" id="rAdd">＋ 時間帯を追加</button>`
+      + `<label class="f" style="margin:10px 0 0">ひとこと <small>任意。例：一斉練習／プロのみ</small><input id="hNote" maxlength="30" value="${esc(hNote)}"></label>`;
   };
   const drawType = ()=>{
     if(opts.hoursOnly) return;
@@ -1030,13 +1062,14 @@ function calForm(c, opts={}){
     if(t.dataset.opk){ const [i,j,v]=t.dataset.opk.split(":"); spars[i].opponents[j].kind=v; drawType(); return; }
   });
   drawHours(); drawType();
+  $("#cDate").addEventListener("change", ()=>{ if(hMode!=="open") drawHours(); });
   $("#cSave").addEventListener("click", async ()=>{
     syncInputs();
     const date = $("#cDate").value; if(!date){ $("#cErr").textContent="日付を入れてください"; return; }
     const b = writeBatch(db); let n = 0;
     const hid = "hours_"+date;
     if(hMode==="none"){ if(hoursOf(date)){ b.delete(doc(db,"calendar",hid)); n++; } }
-    else { b.set(doc(db,"calendar",hid), {date, type:"営業時間", closed: hMode==="closed", ranges: hMode==="open" ? ranges.filter(r=>r.from||r.to) : []}); n++; }
+    else { b.set(doc(db,"calendar",hid), {date, type:"営業時間", closed: hMode==="closed", ranges: hMode==="open" ? ranges.filter(r=>r.from||r.to) : [], note: hMode==="open" ? (hNote||"").trim() : ""}); n++; }
     if(!opts.hoursOnly){
       const ref = isNew ? doc(collection(db,"calendar")) : doc(db,"calendar",c.id);
       if(type==="なし"){ if(!isNew){ b.delete(ref); n++; } }
