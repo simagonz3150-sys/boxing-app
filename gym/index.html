@@ -932,7 +932,7 @@ function jpHolidays(y){
 const holidayOf = date => jpHolidays(Number(date.slice(0,4)))[date] || "";
 function baseHours(date){
   const w = new Date(date+"T00:00:00").getDay(), hol = holidayOf(date);
-  if(hol) return {closed:false, ranges:[], note:`祝日（プロのみ）`, holiday:hol};
+  if(hol) return {closed:false, ranges:[], note:`プロのみ（練習希望者要相談）`, holiday:hol};
   if(w===0) return {closed:true, ranges:[], note:"定休日"};
   if(w===6) return {closed:false, ranges:[{from:"16:00",to:""}], note:"一斉練習"};
   return {closed:false, ranges:[{from:"17:00",to:"21:00"}], note:""};
@@ -968,7 +968,7 @@ function viewCalendar(){
     <div class="row" style="justify-content:center;margin:8px 0 10px;gap:4px 10px;font-size:11px;color:var(--muted)">
       <span><i class="cdot" style="background:var(--accent)"></i>試合</span><span><i class="cdot" style="background:#8f897e"></i>ジム休み</span><span><i class="cdot" style="background:#2a6fdb"></i>スパーリング</span><span><i class="cdot" style="background:#1f7a4d"></i>その他</span><span><i class="cdot" style="background:#d98b1a"></i>祝日プロのみ</span><span><i class="cdot" style="background:#8a4fc7"></i>会長不在</span>
 </div>
-    <div class="basehrs"><div class="bh-t">基本の<br>営業時間</div><div class="bh-g"><b>平日</b><span>17:00〜21:00</span><b>土</b><span>16:00〜 一斉練習</span><b>日</b><span>定休日</span><b>祝日</b><span>プロのみ</span></div>
+    <div class="basehrs"><div class="bh-t">基本の<br>営業時間</div><div class="bh-g"><b>平日</b><span>17:00〜21:00</span><b>土</b><span>16:00〜 一斉練習</span><b>日</b><span>定休日</span><b>祝日</b><span>プロのみ（練習希望者要相談）</span></div>
       ${state.calMonth!==today.slice(0,7)?`<button class="btn sm" data-act="cal-today" style="padding:2px 8px;margin-left:6px">今日</button>`:""}</div>
     <div class="cal">${["日","月","火","水","木","金","土"].map((w,i)=>`<div class="cw ${i===0?"sun":i===6?"sat":""}">${w}</div>`).join("")}`;
   for(let i=0;i<42;i++){
