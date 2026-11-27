@@ -186,6 +186,20 @@ p.lead{color:var(--muted);font-size:13px;margin:0 0 14px}
 .bwho{flex:1;display:flex;flex-wrap:wrap;gap:4px}
 .bnone{font-size:12px;color:var(--muted)}
 .mchip{display:inline-flex;align-items:center;gap:4px;background:#efece6;border-radius:99px;padding:2px 8px 2px 2px;font-size:12px;font-weight:700;white-space:nowrap}
+.ph{overflow:hidden;display:block;padding:0;position:relative}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.mchip .mph{width:22px;height:22px;border-radius:50%;overflow:hidden;flex:none;display:block;position:relative}
+.mchip .mph img{width:100%;height:100%;object-fit:cover;display:block;border-radius:0}
+.face-img{position:relative}
+.face-img img{display:block}
+.facer{background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:-4px 0 14px}
+.facer-h{font-size:12px;font-weight:900;color:#4a4740;margin-bottom:6px}
+.facer-body{display:flex;gap:12px;align-items:flex-start}
+.facer-full{position:relative;flex:none;width:150px;border-radius:8px;overflow:hidden;cursor:crosshair;touch-action:none;background:#eee}
+.facer-full img{display:block;width:100%;height:auto;pointer-events:none}
+.facer-dot{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 2px var(--accent);pointer-events:none}
+.facer-side{flex:1;min-width:0;font-size:12px;color:var(--muted)}
+.facer-side input[type=range]{width:100%;margin:6px 0}
 .mchip img,.mchip i{width:22px;height:22px;border-radius:50%;object-fit:cover;flex:none}
 .mchip i{background:#8f897e;color:#fff;font-style:normal;font-size:11px;display:grid;place-items:center}
 .mchip.lead{background:var(--accent);color:#fff}
@@ -369,7 +383,15 @@ function fmtDate(d){ if(!d) return ""; const t=new Date(d+"T00:00:00"); if(isNaN
 function todayStr(){ const t=new Date(); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`; }
 function toast(msg){ const t=$("#toast"); t.textContent=msg; t.style.display="block"; clearTimeout(toast._t); toast._t=setTimeout(()=>t.style.display="none",2600); }
 function initial(m){ return esc((m.sei||"?").slice(0,1)); }
-function avatar(m){ return m.photo ? `<img class="avatar" src="${esc(m.photo)}" alt="">` : `<div class="avatar">${initial(m)}</div>`; }
+/* 写真：全身写真でも顔を拡大して見せる（face = {x,y,z}） */
+function faceImg(m){ const f = m.face || {}; const z = Number(f.z)||1, x = Number.isFinite(f.x)?f.x:50, y = Number.isFinite(f.y)?f.y:50, a = Number(f.a)||0;
+  if(z>1 && a>0){ // 顔（x,y）が四角の真ん中に来るように配置
+    const w = (a<1 ? 1 : a) * z * 100, h = (a<1 ? 1/a : 1) * z * 100;
+    const cl = (v,lo)=>Math.min(0, Math.max(lo, v));
+    const left = cl(50 - x/100*w, 100 - w), top = cl(50 - y/100*h, 100 - h);
+    return `<img src="${esc(m.photo)}" alt="" style="position:absolute;max-width:none;width:${w.toFixed(1)}%;height:${h.toFixed(1)}%;left:${left.toFixed(1)}%;top:${top.toFixed(1)}%;object-fit:fill">`; }
+  return `<img src="${esc(m.photo)}" alt="" style="object-position:${x}% ${y}%;${z>1?`transform:scale(${z});transform-origin:${x}% ${y}%`:""}">`; }
+function avatar(m){ return m.photo ? `<span class="avatar ph">${faceImg(m)}</span>` : `<div class="avatar">${initial(m)}</div>`; }
 function errMsg(e){
   const c = e && e.code || "";
   if(c.includes("permission")) return "権限がありません。設定ルールを確認してください。";
@@ -742,7 +764,7 @@ function supFacesSheet(evId){
   const list = evSupport(evId).slice().sort((a,b)=>leaders.has(b.id)-leaders.has(a.id));
   openSheet(`<h3>サポートメンバー（${list.length}人）</h3><p class="note">${esc(fmtDate(ev?.date||""))} ${esc(ev?.title||"")}</p>
     <div class="faces">${list.map(sm=>{ const m = memberOf(sm) || {}; const nm = m.sei ? `${m.sei} ${m.mei||""}`.trim() : (sm.name||"?"); const rs = rolesOf(sm.id);
-      return `<div class="face"><div class="face-img">${m.photo?`<img src="${esc(m.photo)}" alt="">`:`<i>${esc(nm.slice(0,1))}</i>`}</div>
+      return `<div class="face"><div class="face-img">${m.photo?faceImg(m):`<i>${esc(nm.slice(0,1))}</i>`}</div>
         <div class="face-b"><div class="face-n">${esc(nm)}${leaders.has(sm.id)?`<b class="face-lead">${esc(leaderLabel())}</b>`:""}</div>${m.kana?`<div class="face-k">${esc(m.kana)}</div>`:""}
         <div class="face-r">${rs.length?rs.map(x=>`<span><em>${esc(x.w)}</em>${esc(x.r)}</span>`).join(""):`<span class="none">役割 未定</span>`}</div></div></div>`; }).join("") || `<div class="empty">まだサポートメンバーがいません。</div>`}</div>`);
 }
@@ -811,7 +833,7 @@ function viewSupport(){
     const leaders = new Set(asg["common|リーダー"]||[]);
     const chip = sm => { const m = memberOf(sm) || {sei:sm.name||"?"}; const nm = m.mei!==undefined?`${m.sei} ${m.mei||""}`.trim():sm.name;
       const lead = leaders.has(sm.id);
-      return `<span class="mchip ${lead?"lead":""}">${m.photo?`<img src="${esc(m.photo)}" alt="">`:`<i>${esc((m.sei||"?").slice(0,1))}</i>`}${esc(nm)}${lead?`<b>${esc(leaderLabel())}</b>`:""}</span>`; };
+      return `<span class="mchip ${lead?"lead":""}">${m.photo?`<span class="mph">${faceImg(m)}</span>`:`<i>${esc((m.sei||"?").slice(0,1))}</i>`}${esc(nm)}${lead?`<b>${esc(leaderLabel())}</b>`:""}</span>`; };
     const row = (key, role) => { const ids = asg[key]||[]; const who = list.filter(sm=>ids.includes(sm.id)).sort((x,y)=>leaders.has(y.id)-leaders.has(x.id));
       return `<div class="brow ${key==="common|リーダー"?"lead":""}"><div class="brole">${esc(roleLabel(role))}</div><div class="bwho">${who.length?who.map(chip).join(""):`<span class="bnone">未定</span>`}</div>${can?`<button class="btn sm" data-act="role-assign" data-key="${esc(key)}" data-role="${esc(roleLabel(role))}">選ぶ</button>`:""}</div>`; };
     const plan = (state.plans||{})[state.supportEventId] || {};
@@ -1084,7 +1106,7 @@ function dayItems(date){
 const isClosed = date => effHours(date).closed || state.cal.some(c=>c.date===date && c.type==="休み");
 const hoursHtml = h => h.closed ? esc(h.note||"休み") : ((h.ranges||[]).filter(r=>r.from||r.to).map(r=>`<span style="white-space:nowrap;margin-right:10px">${esc(r.from||"")}〜${esc(r.to||"")}</span>`).join("") + (h.note?`<span style="white-space:nowrap">${esc(h.note)}</span>`:"")) || "未設定";
 const nameOf = id => { const m = state.members.find(x=>x.id===id); return m ? `${m.sei} ${m.mei||""}`.trim() : "（削除された人）"; };
-const mchip = id => { const m=state.members.find(z=>z.id===id)||{sei:"?"}; return `<span class="mchip">${m.photo?`<img src="${esc(m.photo)}" alt="">`:`<i>${esc((m.sei||"?").slice(0,1))}</i>`}${esc(nameOf(id))}</span>`; };
+const mchip = id => { const m=state.members.find(z=>z.id===id)||{sei:"?"}; return `<span class="mchip">${m.photo?`<span class="mph">${faceImg(m)}</span>`:`<i>${esc((m.sei||"?").slice(0,1))}</i>`}${esc(nameOf(id))}</span>`; };
 const hoursText = h => h.closed ? "休み" : (h.ranges||[]).filter(r=>r.from||r.to).map(r=>`${r.from||""}〜${r.to||""}`).join("　") || "未設定";
 const sparMemberIds = c => { const ids = []; const add = id => { if(id && !ids.includes(id)) ids.push(id); };
   (c.spars||[]).forEach(sp=>{ if((sp.kind||"member")==="member") add(sp.memberId); (sp.opponents||[]).forEach(o=>{ if(o.kind==="member") add(o.memberId); }); });
@@ -1368,6 +1390,7 @@ function memberForm(m, mode){
     <div class="photo-pick"><div id="pv">${avatar(m)}</div>
       <div><label class="btn" style="display:inline-block">顔写真を選ぶ<input type="file" id="fPhoto" accept="image/*" hidden></label>
       ${admin&&m.photo?`<div><button class="btn sm danger" id="rmPhoto" style="margin-top:6px">写真を外す</button></div>`:""}</div></div>
+    ${admin?`<div class="facer" id="facer" hidden></div>`:""}
     <div class="two"><label class="f">名前（姓）<input id="fSei" maxlength="20" value="${esc(m.sei)}"></label><label class="f">名前（名）<input id="fMei" maxlength="20" value="${esc(m.mei)}"></label></div>
     <label class="f">ふりがな<input id="fKana" maxlength="40" value="${esc(m.kana)}" placeholder="まつだ たろう"></label>
     <label class="f">分類<select id="fCat">${opt(CATEGORIES,catOf(m))}</select></label>
@@ -1376,14 +1399,33 @@ function memberForm(m, mode){
     <div class="err" id="fErr"></div>
     <div class="row"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="fSave">${mode==="register"?"送信する":mode==="approve"?"登録する":"保存"}</button></div>`);
   let photo = m.photo || "";
+  let face = m.face ? {x:Number(m.face.x)||50, y:Number(m.face.y)||50, z:Number(m.face.z)||1, a:Number(m.face.a)||0} : {x:50,y:50,z:1,a:0};
+  const drawPv = ()=>{ $("#pv").innerHTML = photo ? avatar({photo, face}) : avatar({sei:$("#fSei").value}); };
+  const drawFacer = ()=>{ const el = $("#facer"); if(!el) return; el.hidden = !photo; if(!photo) return;
+    el.innerHTML = `<div class="facer-h">🔍 顔を拡大する（全身写真のとき）</div>
+      <div class="facer-body"><div class="facer-full" id="facerFull"><img src="${esc(photo)}" alt="" id="facerImg"><span class="facer-dot" style="left:${face.x}%;top:${face.y}%"></span></div>
+      <div class="facer-side">① 左の写真で<b>顔のところ</b>をタップ<br>② 大きさを調整<input type="range" id="faceZ" min="1" max="5" step="0.1" value="${face.z}"><div class="row" style="gap:6px"><button type="button" class="btn sm" id="faceReset">元に戻す</button></div><div style="margin-top:6px">上の四角が一覧での見え方です。</div></div></div>`;
+    const full = $("#facerFull"); const fi = $("#facerImg");
+    const setA = ()=>{ if(fi.naturalWidth){ face.a = +(fi.naturalWidth/fi.naturalHeight).toFixed(4); drawPv(); } };
+    if(fi.complete) setA(); else fi.addEventListener("load", setA);
+    const setPt = ev=>{ const r = full.getBoundingClientRect(); const p = ev.touches?ev.touches[0]:ev;
+      face.x = Math.round(Math.max(0,Math.min(100,(p.clientX-r.left)/r.width*100))); face.y = Math.round(Math.max(0,Math.min(100,(p.clientY-r.top)/r.height*100)));
+      if(face.z<=1) face.z = 2.5; $("#faceZ").value = face.z;
+      full.querySelector(".facer-dot").style.left = face.x+"%"; full.querySelector(".facer-dot").style.top = face.y+"%"; drawPv(); };
+    full.addEventListener("pointerdown", ev=>{ setPt(ev); full.setPointerCapture(ev.pointerId); });
+    full.addEventListener("pointermove", ev=>{ if(ev.buttons) setPt(ev); });
+    $("#faceZ").addEventListener("input", ev=>{ face.z = Number(ev.target.value); drawPv(); });
+    $("#faceReset").addEventListener("click", ()=>{ face = {x:50,y:50,z:1}; drawFacer(); drawPv(); });
+  };
+  drawPv(); drawFacer();
   const syncGrade = ()=>{ const n = GRADES[$("#fCat").value]; $("#fGradeWrap").hidden = !n;
     if(n){ const cur = $("#fGrade").value || String(m.grade||""); $("#fGrade").innerHTML = `<option value="">選んでください</option>`+Array.from({length:n},(_,i)=>`<option value="${i+1}" ${String(i+1)===cur?"selected":""}>${i+1}年生</option>`).join(""); } };
   $("#fCat").addEventListener("change", syncGrade); syncGrade();
   $("#fPhoto").addEventListener("change", async e=>{
     const f = e.target.files[0]; if(!f) return;
-    try{ photo = await shrinkPhoto(f); $("#pv").innerHTML = `<img class="avatar" src="${photo}" alt="">`; }catch(err){ $("#fErr").textContent = err.message; }
+    try{ photo = await shrinkPhoto(f); face = {x:50,y:50,z:1}; drawPv(); drawFacer(); }catch(err){ $("#fErr").textContent = err.message; }
   });
-  $("#rmPhoto")?.addEventListener("click", ()=>{ photo=""; $("#pv").innerHTML = avatar({sei:$("#fSei").value}); });
+  $("#rmPhoto")?.addEventListener("click", ()=>{ photo=""; drawPv(); drawFacer(); });
   $("#fSave").addEventListener("click", async ()=>{
     const data = { sei:$("#fSei").value.trim(), mei:$("#fMei").value.trim(), kana:$("#fKana").value.trim(),
       category:$("#fCat").value, weightClass:$("#fCls").value };
@@ -1404,6 +1446,7 @@ function memberForm(m, mode){
       if(!ageV) data.age = "";
       if(m.birthDate && String(ageOf(m)) !== ageV) data.birthDate = "";
       if(!photo) data.photo = "";
+      data.face = photo && face.z>1 ? {x:face.x, y:face.y, z:face.z, a:face.a||0} : null;
       if(mode==="approve"){
         const b = writeBatch(db);
         b.set(doc(collection(db,"members")), {...data, createdAt: serverTimestamp()});
