@@ -460,7 +460,7 @@ function startData(){
     state.checks = {}; snap.docs.filter(d=>d.id.startsWith("chk_")).forEach(d=>{ state.checks[d.id.slice(4)] = d.data().c || {}; });
     state.assign = {}; snap.docs.filter(d=>d.id.startsWith("asg_")).forEach(d=>{ state.assign[d.id.slice(4)] = d.data().a || {}; });
     state.support = snap.docs.filter(d=>d.id!=="_config" && !d.id.startsWith("asg_") && !d.id.startsWith("chk_") && !d.id.startsWith("plan_") && !d.id.startsWith("cor_")).map(d=>({id:d.id,...d.data()})).sort((a,b)=>{
-      const ma=memberOf(a), mb=memberOf(b); return (ma?.kana||a.name||"").localeCompare(mb?.kana||b.name||"","ja"); });
+      const ma=memberOf(a), mb=memberOf(b); if(ma&&mb) return sortMembers(ma,mb); if(ma||mb) return ma?-1:1; return (a.name||"").localeCompare(b.name||"","ja"); });
     state.ready.support = true; render();
   }, ()=>{ state.ready.support = true; render(); }));
   dataUnsubs.push(onSnapshot(doc(db,"meta","manual"), d=>{ state.manual = d.exists() ? (d.data().sections||[]) : null; render(); }, ()=>{}));
@@ -761,7 +761,7 @@ function supFacesSheet(evId){
     Object.entries(asg).forEach(([key, ids])=>{ if(!(ids||[]).includes(smId)) return; const i = key.lastIndexOf("|"); const where = key.slice(0,i), role = key.slice(i+1);
       if(where==="common") out.push({w:"共通", r:roleLabel(role), o:-1}); else { const bi = bouts.findIndex(b=>b.key===where); if(bi<0) return; const b = bouts[bi]; out.push({w:`${b.label||""} ${b.fighter}`.trim(), r:role, o:bi}); } });
     return out.sort((a,b)=>a.o-b.o); };
-  const list = evSupport(evId).slice().sort((a,b)=>leaders.has(b.id)-leaders.has(a.id));
+  const list = evSupport(evId);
   openSheet(`<h3>サポートメンバー（${list.length}人）</h3><p class="note">${esc(fmtDate(ev?.date||""))} ${esc(ev?.title||"")}</p>
     <div class="faces">${list.map(sm=>{ const m = memberOf(sm) || {}; const nm = m.sei ? `${m.sei} ${m.mei||""}`.trim() : (sm.name||"?"); const rs = rolesOf(sm.id);
       return `<div class="face"><div class="face-img">${m.photo?faceImg(m):`<i>${esc(nm.slice(0,1))}</i>`}</div>
@@ -834,7 +834,7 @@ function viewSupport(){
     const chip = sm => { const m = memberOf(sm) || {sei:sm.name||"?"}; const nm = m.mei!==undefined?`${m.sei} ${m.mei||""}`.trim():sm.name;
       const lead = leaders.has(sm.id);
       return `<span class="mchip ${lead?"lead":""}">${m.photo?`<span class="mph">${faceImg(m)}</span>`:`<i>${esc((m.sei||"?").slice(0,1))}</i>`}${esc(nm)}${lead?`<b>${esc(leaderLabel())}</b>`:""}</span>`; };
-    const row = (key, role) => { const ids = asg[key]||[]; const who = list.filter(sm=>ids.includes(sm.id)).sort((x,y)=>leaders.has(y.id)-leaders.has(x.id));
+    const row = (key, role) => { const ids = asg[key]||[]; const who = list.filter(sm=>ids.includes(sm.id));
       return `<div class="brow ${key==="common|リーダー"?"lead":""}"><div class="brole">${esc(roleLabel(role))}</div><div class="bwho">${who.length?who.map(chip).join(""):`<span class="bnone">未定</span>`}</div>${can?`<button class="btn sm" data-act="role-assign" data-key="${esc(key)}" data-role="${esc(roleLabel(role))}">選ぶ</button>`:""}</div>`; };
     const plan = (state.plans||{})[state.supportEventId] || {};
     const tg = plan.together||{}, os = plan.onsite||{};
@@ -1110,7 +1110,7 @@ const mchip = id => { const m=state.members.find(z=>z.id===id)||{sei:"?"}; retur
 const hoursText = h => h.closed ? "休み" : (h.ranges||[]).filter(r=>r.from||r.to).map(r=>`${r.from||""}〜${r.to||""}`).join("　") || "未設定";
 const sparMemberIds = c => { const ids = []; const add = id => { if(id && !ids.includes(id)) ids.push(id); };
   (c.spars||[]).forEach(sp=>{ if((sp.kind||"member")==="member") add(sp.memberId); (sp.opponents||[]).forEach(o=>{ if(o.kind==="member") add(o.memberId); }); });
-  (c.memberIds||[]).forEach(add); return ids; };
+  (c.memberIds||[]).forEach(add); const ord = id => { const i = state.members.findIndex(m=>m.id===id); return i<0?9999:i; }; return ids.sort((a,b)=>ord(a)-ord(b)); };
 const sparCount = c => (c.spars||[]).length || (c.memberIds||[]).length;
 function sparHtml(c){
   if(!(c.spars||[]).length) return (c.memberIds||[]).length ? `<div class="tags" style="margin-top:6px">${c.memberIds.map(mchip).join("")}</div>` : "";
