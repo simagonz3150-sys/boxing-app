@@ -77,6 +77,12 @@ p.lead{color:var(--muted);font-size:13px;margin:0 0 14px}
 .cbout .cb-no{font-size:12px;font-weight:900;color:var(--accent)}
 .cbout .cb-vs{font-weight:900;font-size:15px;line-height:1.4}
 .cbout .cb-info{font-size:12px;color:var(--muted)}
+.seg.cside{display:inline-flex;width:100%}
+.seg.cside button{flex:1}
+.cinfo{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;padding:10px 12px;border-bottom:1px solid var(--line);background:#fafaf7}
+.cinfo b{font-weight:900}
+.cinfo .none{color:#b5b0a6}
+.cinfo .clink{margin-left:auto}
 .cgrid{display:grid;grid-template-columns:96px 1fr;gap:6px 8px;align-items:center;margin-top:10px}
 .cgrid dt{font-size:12px;font-weight:900;color:#4a4740}
 .cgrid dd{margin:0;min-width:0}
@@ -695,11 +701,18 @@ function memberOf(sm){ return sm.memberId ? state.members.find(m=>m.id===sm.memb
 const CORNER_ROLES = [["chief","チーフセコンド"],["second","セコンド"],["cut","カットマン"]];
 const CORNER_CATS = ["会長","トレーナー","プロ選手"];
 const cornerOf = (evId, key) => (state.corners?.[evId] || {})[key] || {};
-const cornerFilled = e => boutsOf(e).filter(b=>{ const c = cornerOf(e.id, b.key); return c.chief||c.second||c.cut||c.wrap||c.wrapTime||c.wuTime; }).length;
+const cornerFilled = e => boutsOf(e).filter(b=>{ const c = cornerOf(e.id, b.key); return c.chief||c.second||c.cut||c.wrap||c.wrapTime||c.wuTime||c.corner; }).length;
 function cornerSelect(evId, key, field, val){
   const groups = CORNER_CATS.map(cat=>{ const ms = state.members.filter(m=>catOf(m)===cat); return ms.length ? `<optgroup label="${cat}">${ms.map(m=>`<option value="${m.id}" ${m.id===val?"selected":""}>${esc(m.sei)} ${esc(m.mei||"")}</option>`).join("")}</optgroup>` : ""; }).join("");
   const extra = val && !state.members.some(m=>m.id===val && CORNER_CATS.includes(catOf(m))) ? `<option value="${esc(val)}" selected>${esc(nameOf(val))}</option>` : "";
   return `<select data-cor="${evId}|${esc(key)}|${field}"><option value="">未定</option>${extra}${groups}</select>`;
+}
+const supNames = (evId, key) => { const ids = ((state.assign||{})[evId]||{})[key] || []; return evSupport(evId).filter(sm=>ids.includes(sm.id)).map(sm=>{ const m = memberOf(sm); return m ? `${m.sei} ${m.mei||""}`.trim() : (sm.name||"?"); }); };
+const supRows = (evId, keyPrefix, roles) => roles.map(r=>{ const n = supNames(evId, keyPrefix+"|"+r); return `<dt>${esc(roleLabel(r))}</dt><dd>${n.length?`<span class="val">${n.map(esc).join("、")}</span>`:`<span class="val none">未定</span>`}</dd>`; }).join("");
+async function saveCorner(evId, key, field, val){
+  const cur = {...(state.corners?.[evId] || {})}; cur[key] = {...(cur[key]||{}), [field]: val};
+  try{ await setDoc(doc(db,"support","cor_"+evId), {eventId:"_cor", b: cur}); toast("保存しました"); }
+  catch(err){ toast(leaderErr(err)); }
 }
 function viewCorner(){
   const ev = state.events.find(e=>e.id===state.cornerEventId);
@@ -710,6 +723,8 @@ function viewCorner(){
     <div class="card" style="margin-top:8px;padding:10px 14px"><div style="font-weight:900">${esc(fmtDate(ev.date))}${ev.time?` ${esc(ev.time)} 開始`:""}</div><div class="sub" style="margin-top:2px">${esc(ev.title||"試合")}${ev.venue?`・${esc(ev.venue)}`:""}</div></div>
     <p class="lead" style="margin-top:8px">上からメインの順です。${can?"選ぶとすぐ保存されます。":""}</p>`;
   if(!state.ready.support) return h + `<div class="loading">読み込み中…</div>`;
+  h += `<div class="cbout" style="border-left-color:#2a6fdb"><div class="row"><div class="cb-vs grow">👥 サポート（共通）</div><button class="btn sm" data-act="open-support" data-id="${ev.id}">サポートを見る</button></div>
+    <dl class="cgrid">${supRows(ev.id, "common", commonRoles())}</dl></div>`;
   const show = id => id ? `<span class="val">${esc(nameOf(id))}</span>` : `<span class="val none">未定</span>`;
   const showT = t => t ? `<span class="val">${esc(t)}</span>` : `<span class="val none">未定</span>`;
   h += boutsOf(ev).map(b=>{ const c = cornerOf(ev.id, b.key), k = b.key;
@@ -718,12 +733,16 @@ function viewCorner(){
     return `<div class="cbout">${b.label?`<div class="cb-no">${esc(b.label)}</div>`:""}<div class="cb-vs">${esc(vsText||b.fighter)}</div>${b.detail?`<div class="cb-info">${esc(b.detail)}</div>`:""}
       <dl class="cgrid">
         <div class="csec">セコンド</div>
+        <dt>コーナー</dt><dd>${can?`<span class="seg cside">${["左","右"].map(v=>`<button type="button" class="${c.corner===v?"on":""}" data-cside="${ev.id}|${esc(k)}|${v}">${v}コーナー</button>`).join("")}</span>`:(c.corner?`<span class="val">${esc(c.corner)}コーナー</span>`:`<span class="val none">未定</span>`)}</dd>
         ${CORNER_ROLES.map(([f,l])=>`<dt>${l}</dt><dd>${can?cornerSelect(ev.id,k,f,c[f]):show(c[f])}</dd>`).join("")}
         <div class="csec">バンテージ巻き</div>
         <dt>巻く人</dt><dd>${can?cornerSelect(ev.id,k,"wrap",c.wrap):show(c.wrap)}</dd>
         <dt>何時から</dt><dd>${can?`<input type="time" data-cor="${ev.id}|${esc(k)}|wrapTime" value="${esc(c.wrapTime||"")}">`:showT(c.wrapTime)}</dd>
         <div class="csec">ウォーミングアップ</div>
         <dt>何時予定</dt><dd>${can?`<input type="time" data-cor="${ev.id}|${esc(k)}|wuTime" value="${esc(c.wuTime||"")}">`:showT(c.wuTime)}</dd>
+        <dt>トレーナー</dt><dd>${can?cornerSelect(ev.id,k,"wuBy",c.wuBy):show(c.wuBy)}</dd>
+        <div class="csec">サポート（サポートで決めた内容）</div>
+        ${supRows(ev.id, k, boutRoles())}
         ${can||c.memo?`<div class="csec">メモ</div><dd style="grid-column:1/-1">${can?`<input data-cor="${ev.id}|${esc(k)}|memo" maxlength="80" value="${esc(c.memo||"")}" placeholder="例：計量後に集合／氷を多めに">`:`<span class="val" style="font-weight:400">${esc(c.memo)}</span>`}</dd>`:""}
       </dl></div>`; }).join("") || `<div class="empty">出場選手がまだ入っていません。</div>`;
   return h;
@@ -731,10 +750,17 @@ function viewCorner(){
 document.addEventListener("change", async e=>{
   const el = e.target.closest("[data-cor]"); if(!el) return;
   const [evId, key, field] = el.dataset.cor.split("|");
-  const cur = {...(state.corners?.[evId] || {})}; cur[key] = {...(cur[key]||{}), [field]: el.value.trim()};
-  try{ await setDoc(doc(db,"support","cor_"+evId), {eventId:"_cor", b: cur}); toast("保存しました"); }
-  catch(err){ toast(leaderErr(err)); }
+  saveCorner(evId, key, field, el.value.trim());
 });
+document.addEventListener("click", e=>{
+  const b = e.target.closest("[data-cside]"); if(!b) return;
+  const [evId, key, v] = b.dataset.cside.split("|"); const cur = cornerOf(evId, key).corner || "";
+  saveCorner(evId, key, "corner", cur===v ? "" : v);
+});
+function cornerInfo(evId, key){
+  const c = cornerOf(evId, key); const v = (x, f=y=>y) => x ? `<b>${esc(f(x))}</b>` : `<span class="none">未定</span>`;
+  return `<div class="cinfo"><span>🕐 ウォーミングアップ ${v(c.wuTime)}</span><span>トレーナー ${v(c.wuBy, nameOf)}</span>${c.corner?`<span>🥊 ${esc(c.corner)}コーナー</span>`:""}<button class="btn sm clink" data-act="open-corner" data-id="${evId}">セコンド表</button></div>`;
+}
 function viewSupport(){
   const can = canEditSupport();
   const ev = state.events.find(e=>e.id===state.supportEventId);
@@ -775,7 +801,7 @@ function viewSupport(){
         return `<label class="chk ${on?"on":""}"><input type="checkbox" ${on?"checked":""} ${can?"":"disabled"} data-act="check-toggle" data-key="${esc(key+"|"+it)}"><span>${esc(it)}</span></label>`; }).join("")}</div>`; };
     const bouts = boutsOf(ev);
     if(!bouts.length) h += `<div class="empty" style="margin-top:10px">この試合の「出場選手」が未入力です。試合の「編集」で入れると、試合ごとの役割が出ます。</div>`;
-    bouts.forEach(bt=>{ h += `<div class="bsec">${bt.label?`<span>${esc(bt.label)}</span>`:""}${esc(bt.fighter)}</div><div class="card board">${checkBlock(bt.key)}${boutRoles().map(r=>row(bt.key+"|"+r, r)).join("")}</div>`; });
+    bouts.forEach(bt=>{ h += `<div class="bsec">${bt.label?`<span>${esc(bt.label)}</span>`:""}${esc(bt.fighter)}</div><div class="card board">${cornerInfo(ev.id, bt.key)}${checkBlock(bt.key)}${boutRoles().map(r=>row(bt.key+"|"+r, r)).join("")}</div>`; });
     const used = new Set(Object.values(asg).flat());
     const none = list.filter(sm=>!used.has(sm.id));
     if(none.length) h += `<div class="bsec" style="color:var(--muted)">まだ役割がない人</div><div class="card board"><div class="brow"><div class="bwho">${none.map(chip).join("")}</div></div></div>`;
