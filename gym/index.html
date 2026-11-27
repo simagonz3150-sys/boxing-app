@@ -92,6 +92,22 @@ p.lead{color:var(--muted);font-size:13px;margin:0 0 14px}
 .cmore{font-size:9px;color:var(--muted)}
 .cdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px;vertical-align:0}
 .cal-item .ci-type{font-size:12px;font-weight:900;margin-bottom:2px}
+.ci-time{margin-left:8px;color:var(--ink);font-weight:700}
+.hours{display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:14px}
+.hours .ci-type{font-size:12px;font-weight:900;color:var(--muted)}
+.hours.closed{background:#e9e6e0}
+.spars{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.spar{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;background:#f7f5f1;border-radius:10px;padding:6px 8px}
+.spar-ops{display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px}
+.spar-op{display:flex;align-items:center;flex-wrap:wrap;gap:4px;font-size:13px}
+.spar-op .vs{font-weight:900;color:var(--accent);font-size:11px}
+.spar-op .rd{background:#141414;color:#fff;border-radius:6px;padding:0 6px;font-size:11px;font-weight:700;margin-left:4px}
+.fsec{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+.fsec-h{font-weight:900;font-size:14px;margin-bottom:8px}
+.seg.wide{display:flex;width:100%}
+.seg.wide button{flex:1}
+.spbox{border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px;background:#faf9f6}
+.opbox{border-left:3px solid #2a6fdb;padding:4px 0 6px 8px;margin-bottom:8px}
 .board{padding:6px 12px}
 .chkbox{margin:-6px -12px 4px;padding:8px 12px 8px;background:#f7f5f1;border-radius:14px 14px 0 0;border-bottom:1px solid var(--line)}
 .chkh{font-size:12px;font-weight:900;color:var(--muted);margin-bottom:4px}
@@ -170,6 +186,8 @@ footer button{background:none;border:0;color:var(--muted);font-size:12px;text-de
 /* sheet */
 .sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20;display:none;align-items:flex-end;justify-content:center}
 .sheet-bg.show{display:flex}
+.sheet-top{position:sticky;top:-18px;z-index:2;background:var(--bg);margin:-18px -16px 6px;padding:12px 16px 6px;display:flex}
+.sheet-x{border:1px solid var(--line);background:#fff;border-radius:99px;padding:6px 14px;font-size:14px;font-weight:700;cursor:pointer}
 .sheet{background:var(--bg);width:100%;max-width:720px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px calc(24px + env(safe-area-inset-bottom))}
 .sheet h3{margin:0 0 12px;font-size:18px;font-weight:900}
 label.f{display:block;margin-bottom:12px;font-size:13px;font-weight:700;color:#4a4740}
@@ -883,13 +901,24 @@ function leaderEnterForm(){
 /* ---------- カレンダー：試合（試合予定から自動）・ジム休み・スパーリング・その他 ---------- */
 const CAL_TYPES = { "休み":{c:"#8f897e",short:"休"}, "スパーリング":{c:"#2a6fdb",short:"スパー"}, "その他":{c:"#1f7a4d",short:"予定"} };
 const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const hoursOf = date => state.cal.find(c=>c.id==="hours_"+date);
+const isHours = c => c.id && c.id.startsWith("hours_");
 function dayItems(date){
   const out = [];
   state.events.filter(e=>e.date===date).forEach(e=>out.push({kind:"試合", ev:e}));
-  state.cal.filter(c=>c.date===date).sort((a,b)=>(a.time||"").localeCompare(b.time||"")).forEach(c=>out.push({kind:c.type||"その他", c}));
+  state.cal.filter(c=>c.date===date && !isHours(c)).sort((a,b)=>(a.time||"").localeCompare(b.time||"")).forEach(c=>out.push({kind:c.type||"その他", c}));
   return out;
 }
+const isClosed = date => { const h = hoursOf(date); return (h && h.closed) || state.cal.some(c=>c.date===date && c.type==="休み"); };
 const nameOf = id => { const m = state.members.find(x=>x.id===id); return m ? `${m.sei} ${m.mei||""}`.trim() : "（削除された人）"; };
+const mchip = id => { const m=state.members.find(z=>z.id===id)||{sei:"?"}; return `<span class="mchip">${m.photo?`<img src="${esc(m.photo)}" alt="">`:`<i>${esc((m.sei||"?").slice(0,1))}</i>`}${esc(nameOf(id))}</span>`; };
+const hoursText = h => h.closed ? "休み" : (h.ranges||[]).filter(r=>r.from||r.to).map(r=>`${r.from||""}〜${r.to||""}`).join("　") || "未設定";
+const sparCount = c => (c.spars||[]).length || (c.memberIds||[]).length;
+function sparHtml(c){
+  if(!(c.spars||[]).length) return (c.memberIds||[]).length ? `<div class="tags" style="margin-top:6px">${c.memberIds.map(mchip).join("")}</div>` : "";
+  return `<div class="spars">${c.spars.map(sp=>`<div class="spar"><div class="spar-me">${sp.memberId?mchip(sp.memberId):"<span class='bnone'>未定</span>"}</div>
+    <div class="spar-ops">${(sp.opponents||[]).map(o=>`<div class="spar-op"><span class="vs">vs</span>${o.kind==="member"? (o.memberId?mchip(o.memberId):"未定") : `<b>${esc(o.gym||"")}</b>${o.gym?"　":""}${esc(o.name||"")}${o.name?" 選手":""}`}${o.rounds?`<span class="rd">${esc(o.rounds)}R</span>`:""}</div>`).join("") || "<span class='bnone'>対戦相手 未定</span>"}</div></div>`).join("")}</div>`;
+}
 function viewCalendar(){
   const today = todayStr();
   if(!state.calMonth) state.calMonth = today.slice(0,7);
@@ -898,65 +927,130 @@ function viewCalendar(){
   const first = new Date(y, mo-1, 1), start = new Date(y, mo-1, 1 - first.getDay());
   let h = `<div class="row" style="margin-top:22px"><button class="btn sm" data-act="cal-move" data-d="-1">◀</button><h2 class="sec" style="margin:0;flex:1;text-align:center">${y}年${mo}月</h2><button class="btn sm" data-act="cal-move" data-d="1">▶</button></div>
     <div class="row" style="justify-content:center;margin:8px 0 10px;gap:10px;font-size:11px;color:var(--muted)">
-      <span><i class="cdot" style="background:var(--accent)"></i>試合</span>${Object.entries(CAL_TYPES).map(([k,v])=>`<span><i class="cdot" style="background:${v.c}"></i>${k==="休み"?"ジム休み":k}</span>`).join("")}
+      <span><i class="cdot" style="background:var(--accent)"></i>試合</span><span><i class="cdot" style="background:#8f897e"></i>ジム休み</span><span><i class="cdot" style="background:#2a6fdb"></i>スパーリング</span><span><i class="cdot" style="background:#1f7a4d"></i>その他</span>
       ${state.calMonth!==today.slice(0,7)?`<button class="btn sm" data-act="cal-today" style="padding:2px 8px">今日</button>`:""}</div>
     <div class="cal">${["日","月","火","水","木","金","土"].map((w,i)=>`<div class="cw ${i===0?"sun":i===6?"sat":""}">${w}</div>`).join("")}`;
   for(let i=0;i<42;i++){
     const d = new Date(start); d.setDate(start.getDate()+i); const ds = ymd(d);
     if(i>=35 && d.getMonth()!==mo-1) break;
-    const items = dayItems(ds); const off = items.some(x=>x.kind==="休み");
+    const items = dayItems(ds).filter(x=>x.kind!=="休み"); const off = isClosed(ds);
+    const tags = (off?[`<span class="ct" style="background:#8f897e">休</span>`]:[]).concat(items.map(x=>{ const c = x.kind==="試合" ? "var(--accent)" : (CAL_TYPES[x.kind]||CAL_TYPES["その他"]).c;
+        const label = x.kind==="試合" ? "試合" : x.kind==="スパーリング" ? `スパー${sparCount(x.c)||""}` : (x.c.title||"予定");
+        return `<span class="ct" style="background:${c}">${esc(label)}</span>`; }));
     h += `<button class="cd ${d.getMonth()!==mo-1?"out":""} ${ds===today?"today":""} ${ds===state.calDay?"sel":""} ${off?"off":""} ${d.getDay()===0?"sun":d.getDay()===6?"sat":""}" data-act="cal-day" data-d="${ds}">
-      <span class="cn">${d.getDate()}</span>
-      ${items.slice(0,3).map(x=>{ const c = x.kind==="試合" ? "var(--accent)" : (CAL_TYPES[x.kind]||CAL_TYPES["その他"]).c;
-        const label = x.kind==="試合" ? "試合" : x.kind==="スパーリング" ? `スパー${(x.c.memberIds||[]).length?(x.c.memberIds||[]).length:""}` : (CAL_TYPES[x.kind]||CAL_TYPES["その他"]).short;
-        return `<span class="ct" style="background:${c}">${esc(label)}</span>`; }).join("")}
-      ${items.length>3?`<span class="cmore">+${items.length-3}</span>`:""}</button>`;
+      <span class="cn">${d.getDate()}</span>${tags.slice(0,3).join("")}${tags.length>3?`<span class="cmore">+${tags.length-3}</span>`:""}</button>`;
   }
   h += `</div>`;
-  const sel = state.calDay, items = dayItems(sel);
+  const sel = state.calDay, items = dayItems(sel), hr = hoursOf(sel);
   h += `<div class="group-h" style="margin-top:16px">${esc(fmtDate(sel))}</div>`;
-  h += items.length ? `<div class="list">${items.map(x=>{
+  h += `<div class="card hours ${isClosed(sel)?"closed":""}"><span class="ci-type" style="margin:0">${isClosed(sel)?"🚪 ジム休み":"🕐 営業時間"}</span><span class="grow" style="font-weight:900">${hr ? (hr.closed ? "休み" : ((hr.ranges||[]).filter(r=>r.from||r.to).map(r=>`<span style="white-space:nowrap;margin-right:10px">${esc(r.from||"")}〜${esc(r.to||"")}</span>`).join("") || "未設定")) : (isClosed(sel)?"":"<span class='bnone'>未設定</span>")}</span>${state.isAdmin?`<button class="btn sm" data-act="cal-hours">編集</button>`:""}</div>`;
+  const list = items.filter(x=>x.kind!=="休み");
+  h += list.length ? `<div class="list" style="margin-top:8px">${list.map(x=>{
       if(x.kind==="試合"){ const e=x.ev; return `<div class="card cal-item" style="border-left:5px solid var(--accent)"><div class="ci-type" style="color:var(--accent)">🥊 試合</div><div style="font-weight:900">${esc(e.title||"試合")}</div><div class="sub">${e.time?esc(e.time)+" 開始・":""}${esc(e.venue||"")}</div>
         ${boutsOf(e).length?`<div class="sub">${boutsOf(e).map(b=>esc((b.label?b.label+" ":"")+b.fighter)).join("<br>")}</div>`:""}
         <div class="admin-actions" style="justify-content:flex-start"><button class="btn sm" data-act="cal-goevent">試合予定で見る</button></div></div>`; }
       const c = x.c, t = CAL_TYPES[x.kind]||CAL_TYPES["その他"];
-      return `<div class="card cal-item" style="border-left:5px solid ${t.c}"><div class="ci-type" style="color:${t.c}">${x.kind==="休み"?"🚪 ジム休み":x.kind==="スパーリング"?"🥊 スパーリング":"📌 "+esc(c.title||"予定")}</div>
-        ${x.kind!=="その他"&&c.title?`<div style="font-weight:900">${esc(c.title)}</div>`:""}
-        ${c.time?`<div class="sub">🕐 ${esc(c.time)}</div>`:""}
-        ${(c.memberIds||[]).length?`<div class="tags" style="margin-top:6px">${c.memberIds.map(id=>{ const m=state.members.find(z=>z.id===id)||{sei:"?"}; return `<span class="mchip">${m.photo?`<img src="${esc(m.photo)}" alt="">`:`<i>${esc((m.sei||"?").slice(0,1))}</i>`}${esc(nameOf(id))}</span>`; }).join("")}</div>`:""}
+      return `<div class="card cal-item" style="border-left:5px solid ${t.c}"><div class="ci-type" style="color:${t.c}">${x.kind==="スパーリング"?"🥊 スパーリング":"📌 "+esc(c.title||"予定")}${c.time?`<span class="ci-time">${esc(c.time)} 開始</span>`:""}</div>
+        ${x.kind==="スパーリング"&&c.title?`<div style="font-weight:900">${esc(c.title)}</div>`:""}
+        ${x.kind==="スパーリング"?sparHtml(c):((c.memberIds||[]).length?`<div class="tags" style="margin-top:6px">${c.memberIds.map(mchip).join("")}</div>`:"")}
         ${c.memo?`<div class="sub">${esc(c.memo)}</div>`:""}
         ${state.isAdmin?`<div class="admin-actions"><button class="btn sm" data-act="cal-edit" data-id="${c.id}">編集</button><button class="btn sm danger" data-act="cal-del" data-id="${c.id}">削除</button></div>`:""}</div>`; }).join("")}</div>`
-    : `<div class="empty">この日の予定はありません。${state.isAdmin?"<br>右下の「＋ 予定を追加」から入れられます。":""}</div>`;
+    : `<div class="empty" style="margin-top:8px">この日の予定はありません。${state.isAdmin?"<br>右下の「＋ 予定を追加」から入れられます。":""}</div>`;
   return h;
 }
-function calForm(c){
-  const isNew = !c.id; let picked = new Set(c.memberIds||[]); let filter = "すべて";
-  openSheet(`<h3>${isNew?"予定を追加":"予定を編集"}</h3>
-    <div class="two"><label class="f">日付<input type="date" id="cDate" value="${esc(c.date||state.calDay||todayStr())}"></label><label class="f">時間 <small>任意</small><input id="cTime" maxlength="20" value="${esc(c.time)}" placeholder="例：19:00〜"></label></div>
-    <label class="f">種類<select id="cType">${Object.keys(CAL_TYPES).map(k=>`<option value="${k}" ${k===(c.type||"スパーリング")?"selected":""}>${k==="休み"?"ジム休み":k}</option>`).join("")}</select></label>
-    <label class="f">タイトル <small>任意。例：年末年始休み／〇〇さん出稽古</small><input id="cTitle" maxlength="40" value="${esc(c.title)}"></label>
-    <div id="cMemWrap"><div style="font-size:13px;font-weight:700;color:#4a4740;margin-bottom:6px">参加する人 <small style="font-weight:400;color:var(--muted)" id="cCnt"></small></div>
-      <div class="chips" id="cChips"></div><div class="list" id="cMem" style="gap:6px;max-height:300px;overflow:auto;margin-bottom:12px"></div></div>
-    <label class="f">メモ <small>任意</small><textarea id="cMemo" maxlength="200" style="min-height:60px">${esc(c.memo)}</textarea></label>
+function memberOptions(sel, placeholder){
+  return `<option value="">${placeholder||"選んでください"}</option>` + CATEGORIES.concat(["その他"]).map(cat=>{ const ms = state.members.filter(m=>(catOf(m)||"その他")===cat); if(!ms.length) return "";
+    return `<optgroup label="${esc(cat)}">${ms.map(m=>`<option value="${m.id}" ${m.id===sel?"selected":""}>${esc(m.sei)} ${esc(m.mei||"")}${m.weightClass?"（"+esc(m.weightClass)+"）":""}</option>`).join("")}</optgroup>`; }).join("");
+}
+/* opts: {hoursOnly:true} で営業時間だけ編集 */
+function calForm(c, opts={}){
+  const isNew = !c.id; const date0 = c.date || state.calDay || todayStr();
+  const hr0 = hoursOf(date0);
+  let hMode = hr0 ? (hr0.closed ? "closed" : "open") : "none";
+  let ranges = hr0 && !hr0.closed && (hr0.ranges||[]).length ? hr0.ranges.map(r=>({...r})) : [{from:"",to:""}];
+  let type = opts.hoursOnly ? "なし" : (c.type==="休み" ? "なし" : (c.type || "スパーリング"));
+  let spars = (c.spars||[]).length ? JSON.parse(JSON.stringify(c.spars)) : ((c.memberIds||[]).length ? c.memberIds.map(id=>({memberId:id, opponents:[]})) : [{memberId:"", opponents:[{kind:"gym", gym:"", name:"", rounds:""}]}]);
+  const inp = 'style="width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:#fff;font-size:16px"';
+  openSheet(`<div id="cfWrap"><h3>${opts.hoursOnly?"営業時間を編集":isNew?"予定を追加":"予定を編集"}</h3>
+    <label class="f">日付<input type="date" id="cDate" value="${esc(date0)}"></label>
+    <div class="fsec"><div class="fsec-h">🕐 ジムの営業時間</div>
+      <div class="seg wide" id="hSeg">${[["open","時間を入れる"],["closed","休み"],["none","未設定"]].map(([v,l])=>`<button type="button" data-h="${v}">${l}</button>`).join("")}</div>
+      <div id="hRanges" style="margin-top:8px"></div></div>
+    ${opts.hoursOnly?"":`<div class="fsec"><div class="fsec-h">📌 予定</div>
+      <div class="seg wide" id="tSeg">${[["スパーリング","スパーリング"],["その他","その他"],["なし","予定なし"]].map(([v,l])=>`<button type="button" data-t="${v}">${l}</button>`).join("")}</div>
+      <div id="tBody" style="margin-top:10px"></div></div>`}
     <div class="err" id="cErr"></div>
-    <div class="row"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="cSave">保存</button></div>`);
-  const draw = ()=>{
-    const cats = ["すべて",...CATEGORIES].filter(k=>k==="すべて"||state.members.some(m=>catOf(m)===k));
-    $("#cChips").innerHTML = cats.map(k=>`<button type="button" class="chip ${k===filter?"on":""}" data-cf="${esc(k)}">${esc(k)}</button>`).join("");
-    const list = state.members.filter(m=>filter==="すべて"||catOf(m)===filter);
-    $("#cMem").innerHTML = list.map(m=>`<label class="card" style="display:flex;gap:10px;align-items:center;padding:6px 10px;cursor:pointer"><input type="checkbox" value="${m.id}" ${picked.has(m.id)?"checked":""} style="width:20px;height:20px;flex:none">${avatar(m).replace('class="avatar"','class="avatar" style="width:34px;height:34px;font-size:13px"')}<span class="grow" style="font-weight:700">${esc(m.sei)} ${esc(m.mei||"")}</span><span class="sub" style="margin:0">${esc(m.weightClass||gradeLabel(m)||catOf(m))}</span></label>`).join("");
-    $("#cCnt").textContent = picked.size ? `${picked.size}人選択中` : "";
+    <div class="row" style="margin-top:8px"><button class="btn" data-act="close">やめる</button><span class="grow"></span><button class="btn primary" id="cSave">保存</button></div></div>`);
+  c = {...c};
+  const syncInputs = ()=>{
+    if($("#cTime")) c.time = $("#cTime").value; if($("#cMemo")) c.memo = $("#cMemo").value; if($("#cTitle")) c.title = $("#cTitle").value;
+    document.querySelectorAll("[data-r]").forEach(el=>{ const [i,k]=el.dataset.r.split(":"); ranges[i][k]=el.value; });
+    document.querySelectorAll("[data-sp]").forEach(el=>{ const [i,k]=el.dataset.sp.split(":"); spars[i][k]=el.value; });
+    document.querySelectorAll("[data-op]").forEach(el=>{ const [i,j,k]=el.dataset.op.split(":"); spars[i].opponents[j][k]=el.value; });
   };
-  const syncType = ()=>{ $("#cMemWrap").hidden = $("#cType").value==="休み"; };
-  $("#cChips").addEventListener("click", e=>{ const b=e.target.closest("[data-cf]"); if(b){ filter=b.dataset.cf; draw(); } });
-  $("#cMem").addEventListener("change", e=>{ if(e.target.type==="checkbox"){ e.target.checked?picked.add(e.target.value):picked.delete(e.target.value); $("#cCnt").textContent = picked.size?`${picked.size}人選択中`:""; } });
-  $("#cType").addEventListener("change", syncType); syncType(); draw();
+  const drawHours = ()=>{
+    document.querySelectorAll("#hSeg button").forEach(b=>b.classList.toggle("on", b.dataset.h===hMode));
+    $("#hRanges").innerHTML = hMode!=="open" ? (hMode==="closed"?`<div class="sub" style="margin:0">この日はジム休みとして表示されます。</div>`:"") :
+      ranges.map((r,i)=>`<div class="row" style="flex-wrap:nowrap;gap:6px;margin-bottom:6px"><input type="time" data-r="${i}:from" value="${esc(r.from)}" ${inp}><span>〜</span><input type="time" data-r="${i}:to" value="${esc(r.to)}" ${inp}>${ranges.length>1?`<button type="button" class="btn sm danger" data-rdel="${i}">✕</button>`:""}</div>`).join("")
+      + `<button type="button" class="btn sm" id="rAdd">＋ 時間帯を追加</button>`;
+  };
+  const drawType = ()=>{
+    if(opts.hoursOnly) return;
+    document.querySelectorAll("#tSeg button").forEach(b=>b.classList.toggle("on", b.dataset.t===type));
+    let h = "";
+    if(type==="スパーリング"){
+      h += `<label class="f">開始時間<input type="time" id="cTime" value="${esc((c.time||"").replace(/[^0-9:]/g,"").slice(0,5))}"></label>`;
+      h += spars.map((sp,i)=>`<div class="spbox"><div class="row" style="margin-bottom:6px"><b class="grow">スパーリングする人 ${spars.length>1?i+1:""}</b>${spars.length>1?`<button type="button" class="btn sm danger" data-spdel="${i}">この人を外す</button>`:""}</div>
+        <select data-sp="${i}:memberId" ${inp}>${memberOptions(sp.memberId,"松田ジムの所属者を選ぶ")}</select>
+        <div style="font-size:12px;font-weight:700;color:var(--muted);margin:10px 0 4px">対戦相手</div>
+        ${(sp.opponents||[]).map((o,j)=>`<div class="opbox"><div class="row" style="margin-bottom:6px"><span class="seg">${[["gym","他のジム"],["member","松田ジム"]].map(([v,l])=>`<button type="button" class="${(o.kind||"gym")===v?"on":""}" data-opk="${i}:${j}:${v}">${l}</button>`).join("")}</span><span class="grow"></span><button type="button" class="btn sm danger" data-opdel="${i}:${j}">✕</button></div>
+          ${(o.kind||"gym")==="member" ? `<select data-op="${i}:${j}:memberId" ${inp}>${memberOptions(o.memberId,"松田ジムの選手を選ぶ")}</select>`
+            : `<div class="row" style="flex-wrap:nowrap;gap:6px"><input data-op="${i}:${j}:gym" value="${esc(o.gym)}" maxlength="30" placeholder="〇〇ジム" ${inp}><input data-op="${i}:${j}:name" value="${esc(o.name)}" maxlength="30" placeholder="〇〇 選手" ${inp}></div>`}
+          <div class="row" style="margin-top:6px;flex-wrap:nowrap;gap:6px"><input data-op="${i}:${j}:rounds" type="number" min="1" max="20" inputmode="numeric" value="${esc(o.rounds)}" placeholder="3" style="width:80px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:#fff;font-size:16px;text-align:center"><b>R</b></div></div>`).join("")}
+        <button type="button" class="btn sm" data-opadd="${i}">＋ 対戦相手を追加</button></div>`).join("");
+      h += `<button type="button" class="btn" id="spAdd" style="width:100%;margin:4px 0 12px">＋ スパーリングする人を追加</button>`;
+      h += `<label class="f">メモ <small>任意</small><textarea id="cMemo" maxlength="200" style="min-height:60px">${esc(c.memo)}</textarea></label>`;
+    } else if(type==="その他"){
+      h += `<div class="two"><label class="f">タイトル<input id="cTitle" maxlength="40" value="${esc(c.title)}" placeholder="例：出稽古・ジム大掃除"></label><label class="f">開始時間 <small>任意</small><input type="time" id="cTime" value="${esc((c.time||"").replace(/[^0-9:]/g,"").slice(0,5))}"></label></div>
+        <label class="f">メモ <small>任意</small><textarea id="cMemo" maxlength="200" style="min-height:60px">${esc(c.memo)}</textarea></label>`;
+    }
+    $("#tBody").innerHTML = h;
+  };
+  $("#cfWrap").addEventListener("click", e=>{
+    const t = e.target.closest("button"); if(!t) return;
+    syncInputs();
+    if(t.dataset.h){ hMode = t.dataset.h; drawHours(); return; }
+    if(t.id==="rAdd"){ ranges.push({from:"",to:""}); drawHours(); return; }
+    if(t.dataset.rdel){ ranges.splice(Number(t.dataset.rdel),1); drawHours(); return; }
+    if(t.dataset.t){ type = t.dataset.t; drawType(); return; }
+    if(t.id==="spAdd"){ spars.push({memberId:"", opponents:[{kind:"gym",gym:"",name:"",rounds:""}]}); drawType(); return; }
+    if(t.dataset.spdel){ spars.splice(Number(t.dataset.spdel),1); drawType(); return; }
+    if(t.dataset.opadd){ spars[t.dataset.opadd].opponents.push({kind:"gym",gym:"",name:"",rounds:""}); drawType(); return; }
+    if(t.dataset.opdel){ const [i,j]=t.dataset.opdel.split(":"); spars[i].opponents.splice(Number(j),1); drawType(); return; }
+    if(t.dataset.opk){ const [i,j,v]=t.dataset.opk.split(":"); spars[i].opponents[j].kind=v; drawType(); return; }
+  });
+  drawHours(); drawType();
   $("#cSave").addEventListener("click", async ()=>{
-    const type = $("#cType").value;
-    const data = { date:$("#cDate").value, time:$("#cTime").value.trim(), type, title:$("#cTitle").value.trim(), memo:$("#cMemo").value.trim(), memberIds: type==="休み"?[]:[...picked] };
-    if(!data.date){ $("#cErr").textContent="日付を入れてください"; return; }
-    try{ if(isNew) await addDoc(collection(db,"calendar"), data); else await setDoc(doc(db,"calendar",c.id), data);
-      state.calDay = data.date; state.calMonth = data.date.slice(0,7); closeSheet(); toast("保存しました"); render(); }
+    syncInputs();
+    const date = $("#cDate").value; if(!date){ $("#cErr").textContent="日付を入れてください"; return; }
+    const b = writeBatch(db); let n = 0;
+    const hid = "hours_"+date;
+    if(hMode==="none"){ if(hoursOf(date)){ b.delete(doc(db,"calendar",hid)); n++; } }
+    else { b.set(doc(db,"calendar",hid), {date, type:"営業時間", closed: hMode==="closed", ranges: hMode==="open" ? ranges.filter(r=>r.from||r.to) : []}); n++; }
+    if(!opts.hoursOnly){
+      const ref = isNew ? doc(collection(db,"calendar")) : doc(db,"calendar",c.id);
+      if(type==="なし"){ if(!isNew){ b.delete(ref); n++; } }
+      else {
+        const data = { date, type, time: $("#cTime")?.value || "", memo: $("#cMemo")?.value.trim() || "", title: $("#cTitle")?.value.trim() || "", memberIds: [] };
+        if(type==="スパーリング"){
+          data.spars = spars.filter(sp=>sp.memberId || (sp.opponents||[]).some(o=>o.memberId||o.gym||o.name)).map(sp=>({memberId:sp.memberId||"", opponents:(sp.opponents||[]).filter(o=>o.memberId||o.gym||o.name||o.rounds).map(o=>({kind:o.kind||"gym", memberId:o.kind==="member"?(o.memberId||""):"", gym:o.kind==="member"?"":(o.gym||"").trim(), name:o.kind==="member"?"":(o.name||"").trim(), rounds:o.rounds?Number(o.rounds):""}))}));
+          if(!data.spars.length){ $("#cErr").textContent="スパーリングする人を選んでください"; return; }
+        }
+        if(type==="その他" && !data.title){ $("#cErr").textContent="タイトルを入れてください"; return; }
+        b.set(ref, data); n++;
+      }
+    }
+    try{ if(n) await b.commit(); state.calDay = date; state.calMonth = date.slice(0,7); closeSheet(); toast("保存しました"); render(); }
     catch(e){ $("#cErr").textContent = errMsg(e); }
   });
 }
@@ -1048,7 +1142,7 @@ function viewPending(){
 }
 
 /* ---------- sheets ---------- */
-function openSheet(html){ $("#sheet").innerHTML = html; $("#sheetBg").classList.add("show"); }
+function openSheet(html){ $("#sheet").innerHTML = `<div class="sheet-top"><button class="sheet-x" data-act="close">← 戻る</button></div>` + html; $("#sheetBg").classList.add("show"); $("#sheet").scrollTop = 0; }
 function closeSheet(){ $("#sheetBg").classList.remove("show"); $("#sheet").innerHTML=""; }
 $("#sheetBg").addEventListener("click", e=>{ if(e.target.id==="sheetBg") closeSheet(); });
 
@@ -1217,6 +1311,7 @@ document.addEventListener("click", async e=>{
     case "cal-today": state.calMonth = todayStr().slice(0,7); state.calDay = todayStr(); render(); break;
     case "cal-day": state.calDay = t.dataset.d; if(t.dataset.d.slice(0,7)!==state.calMonth) state.calMonth = t.dataset.d.slice(0,7); render(); break;
     case "cal-new": calForm({date: state.calDay}); break;
+    case "cal-hours": calForm({date: state.calDay}, {hoursOnly:true}); break;
     case "cal-edit": calForm(state.cal.find(x=>x.id===id)||{}); break;
     case "cal-del": confirmSheet("この予定を削除しますか？", "削除", ()=>deleteDoc(doc(db,"calendar",id)).then(()=>toast("削除しました"))); break;
     case "cal-goevent": state.tab="events"; state.evView = (state.calDay < todayStr()) ? "past" : "up"; render(); window.scrollTo(0,0); break;
