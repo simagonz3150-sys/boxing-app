@@ -522,7 +522,7 @@ function render(){
   if(state.access!=="ok"){
     $("#tabs").innerHTML = "";
     v.innerHTML = state.access==="checking" ? `<div class="loading">読み込み中…</div>` : `<div class="gate">
-      <img src="apple-touch-icon.png" alt="" class="gate-logo"><h2>試合サポートメンバー</h2>
+      <img src="apple-touch-icon.png" alt="" class="gate-logo"><h2>MBGアプリ</h2>
       <p>ジムで共有している<b>合言葉</b>を入れてください。<br>このスマホで一度入れれば、次からは入力不要です。</p>
       <input id="gCode" maxlength="30" autocomplete="off" autocapitalize="characters" placeholder="合言葉">
       <div class="err" id="gErr"></div>
